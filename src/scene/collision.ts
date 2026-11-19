@@ -2,7 +2,7 @@
 // 경고만 계산한다. 배치·이동을 막는 데 쓰지 않는다(AC-11-2).
 import { Box3, Vector3 } from 'three'
 import type { Item, Point2, RoomShape } from '../store/types'
-import { FIT_EPS, WALL_THICKNESS, fixtureKind, fixtureTransform, nearestWall } from './geometry'
+import { FIT_EPS, WALL_THICKNESS, fixtureKind, fixtureTransform, nearestWall, pointInPolygon } from './geometry'
 
 export type WarningKind = 'ITEM' | 'DOOR_SWING' | 'WALL' | 'FIXTURE_OVERLAP' | 'NO_SPACE'
 
@@ -120,17 +120,6 @@ export function swingBox(s: Swing, height: number, out = new Box3()): Box3 {
   return out
 }
 
-/** 반직선 교차 판정. 경계 위 점은 어느 쪽이든 될 수 있으므로 호출부가 EPS만큼 안쪽 점을 넘긴다. */
-function insidePolygon(points: Point2[], x: number, z: number): boolean {
-  let inside = false
-  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-    const [xi, zi] = points[i]
-    const [xj, zj] = points[j]
-    if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside
-  }
-  return inside
-}
-
 /**
  * 가구 바닥 박스가 방 안에 온전히 있는지(벽 간섭·방 밖, AC-11-5).
  * 박스 네 모서리가 모두 방 안이고 방 꼭짓점이 박스 안에 없으면 안에 있다(ㄱ자·빗변 포함 정확).
@@ -142,7 +131,7 @@ function insideRoom(points: Point2[], b: Box3): boolean {
   const z0 = b.min.z + CONTACT_EPS
   const z1 = b.max.z - CONTACT_EPS
   const corners: Point2[] = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]]
-  if (!corners.every(([x, z]) => insidePolygon(points, x, z))) return false
+  if (!corners.every(([x, z]) => pointInPolygon(points, x, z))) return false
   return !points.some(([x, z]) => x > x0 && x < x1 && z > z0 && z < z1)
 }
 

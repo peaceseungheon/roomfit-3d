@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { temporal } from 'zundo'
 import { createSample } from './sample'
 import { ITEM_MAX_H, ITEM_MAX_WD, validateRoom, validateRoomInput } from '../io/validate'
+import { shiftItems } from './rooms'
 import type { DocData, Item, Room, RoomShape } from './types'
 
 export const UNDO_LIMIT = 50
@@ -56,11 +57,8 @@ const clampElevations = (items: Item[], ceil: number): Item[] =>
     ? items.map((it) => ((it.elevation ?? 0) > ceil ? { ...it, elevation: ceil } : it))
     : items
 
-/** 방이 (dx, dz)만큼 옮겨졌을 때 가구·고정 요소를 같이 옮긴다(홈/돌출 확정). 이동이 없으면 같은 배열. */
-export const shiftItems = (items: Item[], shift?: [number, number]): Item[] =>
-  !shift || (shift[0] === 0 && shift[1] === 0)
-    ? items
-    : items.map((it) => ({ ...it, position: [it.position[0] + shift[0], it.position[1], it.position[2] + shift[1]] }))
+// roomForm.ts 등 기존 import 경로 유지용 re-export
+export { shiftItems }
 
 /** 3단계에서 활성 방으로 교체. 지금은 첫 방만 본다. */
 export const selectRoom = (s: DocData): Room => s.rooms[0]

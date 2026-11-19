@@ -25,7 +25,10 @@ interface UiState {
   snapEnabled: boolean
   /** 2D 뷰 치수 라벨 표시(AC-12-4). 저장하지 않음 */
   showDimensions: boolean
+  /** 활성 방 id. null이면 rooms[0]으로 해석된다. Undo 비대상 */
+  activeRoomId: string | null
   select: (id: string | null) => void
+  setActiveRoomId: (id: string | null) => void
   setCameraMode: (m: CameraMode) => void
   setSaveStatus: (s: SaveStatus) => void
   setNotice: (n: string | null) => void
@@ -43,7 +46,9 @@ export const useUiStore = create<UiState>()((set) => ({
   restoreFailure: null,
   snapEnabled: true,
   showDimensions: true,
+  activeRoomId: null,
   select: (selectedId) => set({ selectedId }),
+  setActiveRoomId: (activeRoomId) => set({ activeRoomId }),
   setCameraMode: (cameraMode) => set({ cameraMode }),
   setSaveStatus: (saveStatus) => set({ saveStatus }),
   setNotice: (notice) => set((s) => ({ notice, noticeSeq: s.noticeSeq + 1 })),
@@ -56,4 +61,10 @@ export const useUiStore = create<UiState>()((set) => ({
 useDocStore.subscribe((s) => {
   const id = useUiStore.getState().selectedId
   if (id && !s.items.some((it) => it.id === id)) useUiStore.getState().select(null)
+})
+
+// 방 목록이 바뀌어 activeRoomId가 무효해지면 첫 방으로 해소한다(Undo 비대상)
+useDocStore.subscribe((s) => {
+  const { activeRoomId, setActiveRoomId } = useUiStore.getState()
+  if (!s.rooms.some((r) => r.id === activeRoomId)) setActiveRoomId(s.rooms[0].id)
 })

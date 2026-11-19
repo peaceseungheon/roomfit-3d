@@ -17,7 +17,7 @@ const item = (id: string): Item => ({
 beforeEach(() => {
   useDocStore.setState({ ...createSample(), pristine: true })
   useDocStore.temporal.getState().clear()
-  useUiStore.setState({ selectedId: null, saveStatus: 'idle', restoreFailure: null })
+  useUiStore.setState({ selectedId: null, saveStatus: 'idle', restoreFailure: null, activeRoomId: null })
 })
 
 describe('useDocStore', () => {
@@ -172,6 +172,25 @@ describe('rooms 배열 모델', () => {
     useDocStore.setState({ rooms: [{ ...r0, height: 200 }] })
     useDocStore.getState().addItem({ ...item('hi'), elevation: 300 })
     expect(useDocStore.getState().items.find((i) => i.id === 'hi')!.elevation).toBe(200)
+  })
+})
+
+describe('활성 방 상태', () => {
+  const sq = (x: number): [number, number][] => [[x, 0], [x + 300, 0], [x + 300, 300], [x, 300]]
+  const A = { id: 'r1', name: '방 1', height: 230, points: sq(0) }
+  const B = { id: 'r2', name: '방 2', height: 230, points: sq(320) }
+  it('setActiveRoomId는 Undo 이력에 쌓이지 않는다', () => {
+    useDocStore.getState().loadDocument({ rooms: [A, B], items: [] })
+    useDocStore.temporal.getState().clear()
+    useUiStore.getState().setActiveRoomId('r2')
+    expect(useUiStore.getState().activeRoomId).toBe('r2')
+    expect(useDocStore.temporal.getState().pastStates.length).toBe(0)
+  })
+  it('문서 교체로 activeRoomId가 무효해지면 rooms[0].id로 해소된다', () => {
+    useDocStore.getState().loadDocument({ rooms: [A, B], items: [] })
+    useUiStore.getState().setActiveRoomId('r2')
+    useDocStore.getState().loadDocument({ rooms: [A], items: [] })
+    expect(useUiStore.getState().activeRoomId).toBe('r1')
   })
 })
 

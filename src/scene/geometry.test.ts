@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createSample } from '../store/sample'
 import type { Item, Point2 } from '../store/types'
 import { DIMENSION_BOX_TYPE } from '../store/catalog'
-import { fixtureKind, fixtureTransform, furnitureMaterialProps, furnitureTransform, offsetOutward, roomBounds, signedArea } from './geometry'
+import { fixtureKind, fixtureTransform, furnitureMaterialProps, furnitureTransform, offsetOutward, pointInPolygon, roomBounds, signedArea } from './geometry'
 
 describe('furnitureMaterialProps', () => {
   it('치수 박스만 반투명·depthWrite 끔, 일반 가구는 불투명', () => {
@@ -29,6 +29,16 @@ describe('offsetOutward', () => {
     const out = offsetOutward(lRoom, 10)
     out.forEach((p, i) => close(p, [[-10, -10], [310, -10], [310, 70], [410, 70], [410, 310], [-10, 310]][i]))
     expect(Math.abs(signedArea(out))).toBeGreaterThan(Math.abs(signedArea(lRoom)))
+  })
+})
+
+describe('pointInPolygon', () => {
+  it('안/밖을 가른다(경계 위 판정은 기존 collision.insidePolygon과 동일)', () => {
+    expect(pointInPolygon(rect, 200, 150)).toBe(true)
+    expect(pointInPolygon(rect, -1, 150)).toBe(false)
+    expect(pointInPolygon(rect, 401, 150)).toBe(false)
+    expect(pointInPolygon(lRoom, 350, 20)).toBe(false) // ㄱ자 잘린 쪽
+    expect(pointInPolygon(lRoom, 350, 150)).toBe(true)
   })
 })
 

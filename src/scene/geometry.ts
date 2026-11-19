@@ -1,6 +1,6 @@
 // 씬 순수 로직. 1unit=1cm, points는 [x, z], rotation은 도(렌더링 시점에만 라디안).
 import { DEFAULT_ELEVATION, isDimensionBox } from '../store/catalog'
-import type { Item, Point2, Vec3 } from '../store/types'
+import type { Item, Point2, Room, Vec3 } from '../store/types'
 
 /** 벽 두께(cm). 스키마에 없어 씬 상수로 둔다. 벽은 방 points(실내 경계) 바깥쪽으로 두껍다. */
 export const WALL_THICKNESS = 10
@@ -107,6 +107,34 @@ export function nearestWall(points: Point2[], x: number, z: number): WallHit | n
     const s = Math.min(Math.max((x - a[0]) * dir[0] + (z - a[1]) * dir[1], 0), len)
     const dist = Math.hypot(x - (a[0] + dir[0] * s), z - (a[1] + dir[1] * s))
     if (!best || dist < best.dist) best = { a, dir, len, s, dist, normal: outwardNormal(a, b, sign) }
+  }
+  return best
+}
+
+/** 반직선 교차(짝수-홀수) 점-다각형 판정. 경계 위 점은 어느 쪽이든 될 수 있으므로 호출부가 EPS만큼 안쪽 점을 넘긴다. */
+export function pointInPolygon(points: Point2[], x: number, z: number): boolean {
+  let inside = false
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [xi, zi] = points[i]
+    const [xj, zj] = points[j]
+    if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside
+  }
+  return inside
+}
+
+export interface RoomWallHit {
+  room: Room
+  roomIndex: number
+  wall: WallHit
+}
+
+/** 모든 방의 변 중 가장 가까운 벽. 거리 차 1cm 이내면 배열 앞쪽 방(결정적 규칙). */
+export function nearestWallIn(rooms: readonly Room[], x: number, z: number): RoomWallHit | null {
+  let best: RoomWallHit | null = null
+  for (let roomIndex = 0; roomIndex < rooms.length; roomIndex++) {
+    const room = rooms[roomIndex]
+    const wall = nearestWall(room.points, x, z)
+    if (wall && (!best || wall.dist < best.wall.dist - 1)) best = { room, roomIndex, wall }
   }
   return best
 }
