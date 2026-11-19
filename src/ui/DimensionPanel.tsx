@@ -3,10 +3,10 @@ import { affiliateUrl } from '../affiliate/links'
 import { NAME_MAX } from '../io/validate'
 import { DEFAULT_ELEVATION, DIMENSION_BOX, isDimensionBox, itemLabel } from '../store/catalog'
 import { nextRotation } from '../scene/interaction'
-import { fixtureKind, nearestWall } from '../scene/geometry'
+import { fixtureKind, nearestWallIn } from '../scene/geometry'
 import { useWarnings } from '../scene/useWarnings'
 import { reasonsFor } from './warningText'
-import { selectRoom, useDocStore } from '../store/useDocStore'
+import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { Item } from '../store/types'
 import { deleteSelected, duplicateSelected, patchItem } from './actions'
@@ -149,12 +149,13 @@ function FurnitureFields({ item }: { item: Item }) {
 }
 
 function FixtureFields({ item }: { item: Item }) {
-  const room = useDocStore(selectRoom)
+  const rooms = useDocStore((s) => s.rooms)
   const kind = fixtureKind(item.modelType)
   const ui = toUiSize(item.size)
-  // AC-06-3: 폭은 벽 길이를 넘을 수 없다
-  const wall = nearestWall(room.points, item.position[0], item.position[2])
-  const maxW = Math.min(SIZE_LIMITS.w[1], Math.floor(wall?.len ?? SIZE_LIMITS.w[1]))
+  // AC-06-3: 폭은 호스트 벽 길이를, 높이는 호스트 방 천장고를 넘을 수 없다
+  const host = nearestWallIn(rooms, item.position[0], item.position[2])
+  const maxW = Math.min(SIZE_LIMITS.w[1], Math.floor(host?.wall.len ?? SIZE_LIMITS.w[1]))
+  const maxH = host?.room.height ?? SIZE_LIMITS.h[1]
   const elev = item.elevation ?? DEFAULT_ELEVATION[item.modelType] ?? 0
   const setWidth = (v: number) =>
     patchItem(item.id, {
@@ -173,13 +174,13 @@ function FixtureFields({ item }: { item: Item }) {
             label="높이"
             value={ui.h}
             min={SIZE_LIMITS.h[0]}
-            max={SIZE_LIMITS.h[1]}
+            max={maxH}
             onCommit={(v) => patchItem(item.id, { size: fromUiSize({ ...ui, h: v }) })}
           />
         </>
       )}
       {kind !== 'DOOR' && (
-        <Field label="바닥 위 높이" value={elev} min={0} max={room.height} onCommit={(v) => patchItem(item.id, { elevation: v })} />
+        <Field label="바닥 위 높이" value={elev} min={0} max={maxH} onCommit={(v) => patchItem(item.id, { elevation: v })} />
       )}
       {kind === 'DOOR' && <SwingFields item={item} />}
       <p className="hint">위치는 벽을 따라 드래그해서 옮깁니다.</p>

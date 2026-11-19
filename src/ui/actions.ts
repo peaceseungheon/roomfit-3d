@@ -27,9 +27,8 @@ export function addFromCatalog(modelType: string) {
   const entry = findCatalog(modelType)
   if (!entry || isDragging()) return
   const doc = useDocStore.getState()
-  const { items, addItem } = doc
-  const room = selectRoom(doc)
-  const item = makeFromCatalog(entry, room, items)
+  const { items, rooms, addItem } = doc
+  const item = makeFromCatalog(entry, rooms, selectRoom(doc), items)
   if (addItem(item)) useUiStore.getState().select(item.id)
 }
 
@@ -37,21 +36,19 @@ export function addFromCatalog(modelType: string) {
 export function addDimensionBox(spec: Parameters<typeof makeDimensionBox>[0]): boolean {
   if (isDragging()) return false
   const doc = useDocStore.getState()
-  const { items, addItem } = doc
-  const room = selectRoom(doc)
-  const item = makeDimensionBox(spec, room, items)
+  const { items, rooms, addItem } = doc
+  const item = makeDimensionBox(spec, rooms, selectRoom(doc), items)
   if (!addItem(item)) return false
   useUiStore.getState().select(item.id)
   return true
 }
 
-/** 고정 요소를 가장 긴 벽의 빈 구간 중앙에 추가하고 선택한다(AC-06-1). */
+/** 고정 요소를 활성 방의 가장 긴 벽 빈 구간 중앙에 추가하고 선택한다(AC-06-1). */
 export function addFixture(modelType: string) {
   if (isDragging()) return
   const doc = useDocStore.getState()
-  const { items, addItem } = doc
-  const room = selectRoom(doc)
-  const item = makeFixture(modelType, room, items)
+  const { items, rooms, addItem } = doc
+  const item = makeFixture(modelType, rooms, selectRoom(doc), items)
   if (item && addItem(item)) useUiStore.getState().select(item.id)
 }
 

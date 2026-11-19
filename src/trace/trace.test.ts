@@ -6,7 +6,7 @@ import { selectRoom, useDocStore } from '../store/useDocStore'
 import { useEditStore } from '../store/useEditStore'
 import { useTraceStore } from '../store/useTraceStore'
 import { useUiStore } from '../store/useUiStore'
-import type { Item, Point2 } from '../store/types'
+import type { Item, Point2, Room } from '../store/types'
 import {
   canClose,
   closePolygon,
@@ -136,15 +136,17 @@ const door = (x: number, z: number, w = 90): Item => ({
   id: 'd', type: 'FIXTURE', modelType: 'DOOR_SINGLE', position: [x, 0, z], rotation: [0, 0, 0], size: [w, 200, 10],
 })
 
+const room = (points: Point2[]): Room => ({ id: 'r1', name: '방 1', height: 230, points })
+
 describe('relocateFixtures (AC-05-4)', () => {
   it('벽 위에 맞게 있으면 같은 객체', () => {
     const d = door(200, 0)
-    expect(relocateFixtures(rect, [d]).items[0]).toBe(d)
+    expect(relocateFixtures([room(rect)], [d]).items[0]).toBe(d)
   })
   it('벽이 짧아지면 가까운 벽 안쪽으로 clamp', () => {
     const shrunk = setWallLength(rect, 0, 150)
     const pts = shrunk.ok ? shrunk.value : rect
-    const r = relocateFixtures(pts, [door(350, 0)])
+    const r = relocateFixtures([room(pts)], [door(350, 0)])
     const p = r.items[0].position
     expect(nearestWall(pts, p[0], p[2])?.dist).toBeLessThan(1e-6)
     expect(r.unfit).toEqual([])
@@ -152,13 +154,20 @@ describe('relocateFixtures (AC-05-4)', () => {
   it('들어갈 자리가 없으면 유지하고 unfit', () => {
     const tiny: Point2[] = [[0, 0], [60, 0], [60, 60], [0, 60]]
     const d = door(30, 0, 90)
-    const r = relocateFixtures(tiny, [d])
+    const r = relocateFixtures([room(tiny)], [d])
     expect(r.items[0]).toBe(d)
     expect(r.unfit).toEqual(['d'])
   })
   it('가구는 건드리지 않는다', () => {
     const f: Item = { ...door(0, 0), type: 'FURNITURE', modelType: 'BED' }
-    expect(relocateFixtures(rect, [f]).items[0]).toBe(f)
+    expect(relocateFixtures([room(rect)], [f]).items[0]).toBe(f)
+  })
+  it('여러 방이면 가장 가까운 방 벽 기준으로 재배치', () => {
+    const b: Room = { id: 'r2', name: '방 2', height: 230, points: [[500, 0], [800, 0], [800, 300], [500, 300]] }
+    const r = relocateFixtures([room(rect), b], [door(650, 10)])
+    const p = r.items[0].position
+    expect(nearestWall(b.points, p[0], p[2])?.dist).toBeLessThan(1e-6)
+    expect(r.unfit).toEqual([])
   })
 })
 

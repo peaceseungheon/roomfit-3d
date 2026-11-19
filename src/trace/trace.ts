@@ -1,7 +1,7 @@
 // 평면도 트레이싱·모서리 편집 순수 로직(FR-04, FR-05). 길이 cm, 좌표 [x, z], 이미지 y -> 방 z.
 import { ROOM_MAX, validateRoom } from '../io/validate'
-import { FIT_EPS, nearestWall, outwardNormal, signedArea } from '../scene/geometry'
-import type { Item, Point2 } from '../store/types'
+import { FIT_EPS, nearestWallIn, outwardNormal, signedArea } from '../scene/geometry'
+import type { Item, Point2, Room } from '../store/types'
 
 /** 이미지 용량 상한. PRD에 수치가 없어 10MB로 둔다(보고 사항). */
 export const IMAGE_MAX_BYTES = 10 * 1024 * 1024
@@ -151,14 +151,14 @@ export function setWallLength(points: Point2[], i: number, len: number): Check<P
 }
 
 /**
- * 모서리 편집 후 고정 요소를 가장 가까운 벽 위로 옮긴다(AC-05-4). 벽보다 폭이 큰 요소는 그대로 두고 unfit에 id를 담는다.
+ * 모서리 편집 후 고정 요소를 모든 방 중 가장 가까운 벽 위로 옮긴다(AC-05-4). 벽보다 폭이 큰 요소는 그대로 두고 unfit에 id를 담는다.
  * 이미 벽 위에 맞게 있으면 같은 객체를 돌려준다.
  */
-export function relocateFixtures(points: Point2[], items: Item[]): { items: Item[]; unfit: string[] } {
+export function relocateFixtures(rooms: Room[], items: Item[]): { items: Item[]; unfit: string[] } {
   const unfit: string[] = []
   const next = items.map((it) => {
     if (it.type !== 'FIXTURE') return it
-    const hit = nearestWall(points, it.position[0], it.position[2])
+    const hit = nearestWallIn(rooms, it.position[0], it.position[2])?.wall
     if (!hit) return it
     const half = it.size[0] / 2
     if (hit.len < it.size[0] - FIT_EPS) {

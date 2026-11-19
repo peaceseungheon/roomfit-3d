@@ -49,20 +49,21 @@ describe('roomForm', () => {
 
 describe('fixtures (AC-06-1,3,5)', () => {
   it('places on the longest wall free gap centre, selected, door gets swing', () => {
-    const { rooms: [room], items } = useDocStore.getState()
-    const w = makeFixture('WINDOW', room, items)!
+    const { rooms, items } = useDocStore.getState()
+    const w = makeFixture('WINDOW', rooms, rooms[0], items)!
     // 샘플 가로 400 벽이 가장 길다(동률이면 첫 벽: 위쪽). 중앙 x=200, 창 폭 120
     expect(w.position).toEqual([200, 0, 0])
     expect(w.size[0]).toBe(120)
     expect(w.elevation).toBeUndefined()
-    const d = makeFixture('DOOR_ENTRANCE', room, items)!
+    const d = makeFixture('DOOR_ENTRANCE', rooms, rooms[0], items)!
     expect(d.doorSwing).toMatchObject({ radius: 90 })
-    expect(makeFixture('BED_QUEEN', room, items)).toBeNull()
+    expect(makeFixture('BED_QUEEN', rooms, rooms[0], items)).toBeNull()
   })
   it('avoids existing fixtures on the same wall', () => {
-    const room = selectRoom(useDocStore.getState())
-    const first = makeFixture('WINDOW', room, [])!
-    const second = makeFixture('WINDOW', room, [first])!
+    const rooms = useDocStore.getState().rooms
+    const room = rooms[0]
+    const first = makeFixture('WINDOW', rooms, room, [])!
+    const second = makeFixture('WINDOW', rooms, room, [first])!
     expect(Math.abs(second.position[0] - first.position[0])).toBeGreaterThanOrEqual(120)
     expect(second.id).not.toBe(first.id)
   })

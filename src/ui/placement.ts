@@ -18,9 +18,9 @@ export function nextItemId(items: Item[], prefix = 'item'): string {
 
 const SEARCH_RADIUS = 200
 
-/** 방 중앙에서 가까운 순으로 10cm 격자를 훑어 간섭 없는 첫 자리. 없으면 중앙. */
-export function findFreeSpot(room: Room, items: Item[], candidate: Item): Vec3 {
-  const b = roomBounds(room.points)
+/** 활성 방 중앙에서 가까운 순으로 10cm 격자를 훑어 간섭 없는 첫 자리. 없으면 중앙. */
+export function findFreeSpot(rooms: Room[], active: Room, items: Item[], candidate: Item): Vec3 {
+  const b = roomBounds(active.points)
   const cx = snap((b.minX + b.maxX) / 2)
   const cz = snap((b.minZ + b.maxZ) / 2)
   const offsets: [number, number][] = []
@@ -29,7 +29,7 @@ export function findFreeSpot(room: Room, items: Item[], candidate: Item): Vec3 {
   offsets.sort((a, c) => a[0] ** 2 + a[1] ** 2 - (c[0] ** 2 + c[1] ** 2))
   for (const [dx, dz] of offsets) {
     const trial: Item = { ...candidate, position: [cx + dx, 0, cz + dz] }
-    const hit = computeWarnings(room, [...items, trial]).some(
+    const hit = computeWarnings(rooms, [...items, trial]).some(
       (w) => w.itemId === trial.id || w.otherId === trial.id,
     )
     if (!hit) return trial.position
@@ -37,7 +37,7 @@ export function findFreeSpot(room: Room, items: Item[], candidate: Item): Vec3 {
   return [cx, 0, cz]
 }
 
-export function makeFromCatalog(entry: CatalogEntry, room: Room, items: Item[]): Item {
+export function makeFromCatalog(entry: CatalogEntry, rooms: Room[], active: Room, items: Item[]): Item {
   const base: Item = {
     id: nextItemId(items),
     type: 'FURNITURE',
@@ -48,13 +48,14 @@ export function makeFromCatalog(entry: CatalogEntry, room: Room, items: Item[]):
     size: catalogSize(entry),
     color: entry.color,
   }
-  return { ...base, position: findFreeSpot(room, items, base) }
+  return { ...base, position: findFreeSpot(rooms, active, items, base) }
 }
 
 /** 치수 박스(FR-09). 배치는 카탈로그와 같은 빈자리 탐색을 쓴다. name이 비면 생략. */
 export function makeDimensionBox(
   spec: { size: Vec3; name?: string; color: string },
-  room: Room,
+  rooms: Room[],
+  active: Room,
   items: Item[],
 ): Item {
   const name = spec.name?.trim()
@@ -68,7 +69,7 @@ export function makeDimensionBox(
     size: spec.size,
     color: spec.color,
   }
-  return { ...base, position: findFreeSpot(room, items, base) }
+  return { ...base, position: findFreeSpot(rooms, active, items, base) }
 }
 
 export function makeDuplicate(src: Item, items: Item[]): Item {

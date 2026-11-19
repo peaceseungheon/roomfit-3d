@@ -1,8 +1,17 @@
 // 간섭 판정 순수 로직(FR-11). 1unit=1cm, 방 좌표 (x, z) = 월드 (x, z).
 // 경고만 계산한다. 배치·이동을 막는 데 쓰지 않는다(AC-11-2).
 import { Box3, Vector3 } from 'three'
-import type { Item, Point2, RoomShape } from '../store/types'
-import { FIT_EPS, WALL_THICKNESS, fixtureKind, fixtureTransform, nearestWall, pointInPolygon } from './geometry'
+import type { Item, Point2, Room } from '../store/types'
+import {
+  FIT_EPS,
+  WALL_THICKNESS,
+  fixtureKind,
+  fixtureTransform,
+  nearestWall,
+  nearestWallIn,
+  pointInPolygon,
+  type RoomWallHit,
+} from './geometry'
 
 export type WarningKind = 'ITEM' | 'DOOR_SWING' | 'WALL' | 'FIXTURE_OVERLAP' | 'NO_SPACE'
 
@@ -140,11 +149,12 @@ function overlaps(a: Box3, b: Box3, tmp: Box3): boolean {
   return tmp.copy(a).expandByScalar(-CONTACT_EPS).intersectsBox(b)
 }
 
-/** 같은 벽 위 문/창 박스. 벽 방향 길이 = 폭, y = 실제 높이 구간. */
-function fixtureBox(item: Item, points: Point2[]): { box: Box3; wall: string } | null {
-  const w = nearestWall(points, item.position[0], item.position[2])
-  if (!w) return null
-  const { position } = fixtureTransform(item, points)
+/** 같은 벽 위 문/창 박스. 호스트 방 벽 방향 길이 = 폭, y = 실제 높이 구간. 벽 키에 roomIndex를 넣어 방이 다르면 분리한다. */
+function fixtureBox(item: Item, rooms: Room[]): { box: Box3; wall: string } | null {
+  const host = nearestWallIn(rooms, item.position[0], item.position[2])
+  if (!host) return null
+  const w = host.wall
+  const { position } = fixtureTransform(item, host.room.points)
   const half = item.size[0] / 2
   const hx = Math.abs(w.dir[0]) * half + Math.abs(w.normal[0]) * (WALL_THICKNESS / 2)
   const hz = Math.abs(w.dir[1]) * half + Math.abs(w.normal[1]) * (WALL_THICKNESS / 2)
@@ -153,35 +163,39 @@ function fixtureBox(item: Item, points: Point2[]): { box: Box3; wall: string } |
     new Vector3(position[0] - hx, position[1] - hy, position[2] - hz),
     new Vector3(position[0] + hx, position[1] + hy, position[2] + hz),
   )
-  return { box, wall: `${w.a[0]},${w.a[1]},${w.dir[0]},${w.dir[1]}` }
+  return { box, wall: `${host.roomIndex}|${w.a[0]},${w.a[1]},${w.dir[0]},${w.dir[1]}` }
 }
 
 /**
  * 현재 문서의 경고 목록.
+ * WALL은 어느 한 방에도 온전히 들어가지 않을 때 1건. ITEM은 방과 무관한 전역 쌍.
+ * 문·창·고정 요소는 모든 방 중 가장 가까운 벽(nearestWallIn)을 호스트로 쓴다.
  * ponytail: 쌍 판정 O(n²). 가구 수십 개(50개 ≈ 1.2천 쌍)는 드래그 프레임당 1ms 미만, 수백 개면 공간 분할로.
  */
-export function computeWarnings(room: RoomShape, items: Item[]): Warning[] {
-  const { points } = room
+export function computeWarnings(rooms: Room[], items: Item[]): Warning[] {
   const out: Warning[] = []
   const tmp = new Box3()
   const furniture = items.filter((it) => it.type === 'FURNITURE')
   const boxes = furniture.map((it) => furnitureBox(it))
 
   furniture.forEach((it, i) => {
-    if (!insideRoom(points, boxes[i])) out.push({ itemId: it.id, kind: 'WALL' })
+    if (!rooms.some((r) => insideRoom(r.points, boxes[i]))) out.push({ itemId: it.id, kind: 'WALL' })
     for (let j = i + 1; j < furniture.length; j++) {
       if (overlaps(boxes[i], boxes[j], tmp)) out.push({ itemId: it.id, kind: 'ITEM', otherId: furniture[j].id })
     }
   })
 
   const fixtures = items.filter((it) => it.type === 'FIXTURE')
+  const hosts = new Map<string, RoomWallHit | null>()
   for (const fx of fixtures) {
-    const wall = nearestWall(points, fx.position[0], fx.position[2])
-    if (wall && wall.len < fx.size[0] - FIT_EPS) out.push({ itemId: fx.id, kind: 'NO_SPACE' }) // relocateFixtures의 unfit과 같은 기준
+    const host = nearestWallIn(rooms, fx.position[0], fx.position[2])
+    hosts.set(fx.id, host)
+    if (host && host.wall.len < fx.size[0] - FIT_EPS) out.push({ itemId: fx.id, kind: 'NO_SPACE' }) // relocateFixtures의 unfit과 같은 기준
   }
   for (const door of fixtures) {
     if (fixtureKind(door.modelType) !== 'DOOR') continue
-    const s = doorSwing(door, points)
+    const host = hosts.get(door.id)
+    const s = host ? doorSwing(door, host.room.points) : null
     if (!s || s.outward) continue // 실외 부채꼴은 판정 제외(AC-07-3)
     const sb = swingBox(s, door.size[1])
     furniture.forEach((it, i) => {
@@ -195,7 +209,7 @@ export function computeWarnings(room: RoomShape, items: Item[]): Warning[] {
       const k = fixtureKind(it.modelType)
       return k === 'DOOR' || k === 'WINDOW'
     })
-    .map((it) => ({ it, fb: fixtureBox(it, points) }))
+    .map((it) => ({ it, fb: fixtureBox(it, rooms) }))
   openings.forEach(({ it, fb }, i) => {
     for (let j = i + 1; j < openings.length; j++) {
       const o = openings[j]

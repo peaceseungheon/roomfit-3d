@@ -67,8 +67,9 @@ function commitPoints(points: Point2[]): string | null {
   const { rooms, items } = useDocStore.getState()
   const err = editError(points)
   if (err) return err
-  const re = relocateFixtures(points, items)
-  useDocStore.getState().loadDocument({ rooms: withFirstRoom(rooms, { ...rooms[0], points }), items: re.items })
+  const next = withFirstRoom(rooms, { ...rooms[0], points })
+  const re = relocateFixtures(next, items)
+  useDocStore.getState().loadDocument({ rooms: next, items: re.items })
   if (re.unfit.length) notice(`${re.unfit.length}개 고정 요소가 들어갈 자리가 없어 그대로 두었습니다`)
   return null
 }

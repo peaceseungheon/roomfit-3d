@@ -99,7 +99,8 @@ export function notchesError(f: RoomForm): string | null {
   return r.ok ? null : r.error
 }
 
-/** 새 방에서 방 밖(벽 간섭, AC-11-5)이 되는 가구 개수. 고정 요소는 세지 않는다. */
+/** 새 방에서 방 밖(벽 간섭, AC-11-5)이 되는 가구 개수. 고정 요소는 세지 않는다. 미리보기 방 1개 기준으로 센다. */
 export function countOutsideFurniture(room: RoomShape, items: Item[]): number {
-  return computeWarnings(room, items.filter((it) => it.type === 'FURNITURE')).filter((w) => w.kind === 'WALL').length
+  const preview: Room = { id: '', name: '', height: room.height, points: room.points }
+  return computeWarnings([preview], items.filter((it) => it.type === 'FURNITURE')).filter((w) => w.kind === 'WALL').length
 }

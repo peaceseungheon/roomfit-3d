@@ -18,23 +18,24 @@ const door = (id: string, x: number, z: number, direction?: string): Item => ({
 const win = (id: string, x: number, z: number): Item => ({
   id, type: 'FIXTURE', modelType: 'WINDOW', position: [x, 0, z], rotation: [0, 0, 0], size: [100, 100, 5],
 })
-const kinds = (r: Room, items: Item[]) => computeWarnings(r, items).map((w) => `${w.itemId}:${w.kind}:${w.otherId ?? ''}`)
+const kinds = (rooms: Room[], items: Item[]) =>
+  computeWarnings(rooms, items).map((w) => `${w.itemId}:${w.kind}:${w.otherId ?? ''}`)
 
 describe('가구↔가구', () => {
   it('겹치면 경고 1건(쌍당)', () => {
-    expect(kinds(room, [box('a', 100, 100), box('b', 150, 100)])).toEqual(['a:ITEM:b'])
+    expect(kinds([room],[box('a', 100, 100), box('b', 150, 100)])).toEqual(['a:ITEM:b'])
   })
   it('떨어져 있으면 없음', () => {
-    expect(kinds(room, [box('a', 100, 100), box('b', 250, 100)])).toEqual([])
+    expect(kinds([room],[box('a', 100, 100), box('b', 250, 100)])).toEqual([])
   })
   it('면만 맞닿으면(접촉) 간섭 아님, 1cm 겹치면 간섭', () => {
-    expect(kinds(room, [box('a', 100, 100), box('b', 200, 100)])).toEqual([])
-    expect(kinds(room, [box('a', 100, 100), box('b', 199, 100)])).toEqual(['a:ITEM:b'])
+    expect(kinds([room],[box('a', 100, 100), box('b', 200, 100)])).toEqual([])
+    expect(kinds([room],[box('a', 100, 100), box('b', 199, 100)])).toEqual(['a:ITEM:b'])
   })
   it('회전 90°는 폭·깊이가 바뀐 박스', () => {
     // 100x50을 90° 돌리면 x폭 50 → 중심 거리 80이면 겹치지 않음, 0°면 겹침
-    expect(kinds(room, [box('a', 100, 100, 100, 50, 90), box('b', 180, 100, 100, 50, 90)])).toEqual([])
-    expect(kinds(room, [box('a', 100, 100), box('b', 180, 100)])).toEqual(['a:ITEM:b'])
+    expect(kinds([room],[box('a', 100, 100, 100, 50, 90), box('b', 180, 100, 100, 50, 90)])).toEqual([])
+    expect(kinds([room],[box('a', 100, 100), box('b', 180, 100)])).toEqual(['a:ITEM:b'])
   })
   it('45° 회전은 외접 AABB로 근사', () => {
     const b = furnitureBox(box('a', 0, 0, 100, 100, 45))
@@ -45,17 +46,17 @@ describe('가구↔가구', () => {
 
 describe('가구↔벽(방 밖 포함)', () => {
   it('벽에 붙이기만 하면 간섭 아님', () => {
-    expect(kinds(room, [box('a', 50, 25)])).toEqual([])
+    expect(kinds([room],[box('a', 50, 25)])).toEqual([])
   })
   it('벽을 넘으면 WALL', () => {
-    expect(kinds(room, [box('a', 40, 25)])).toEqual(['a:WALL:'])
+    expect(kinds([room],[box('a', 40, 25)])).toEqual(['a:WALL:'])
   })
   it('방 밖으로 완전히 나가도 WALL', () => {
-    expect(kinds(room, [box('a', 1000, 1000)])).toEqual(['a:WALL:'])
+    expect(kinds([room],[box('a', 1000, 1000)])).toEqual(['a:WALL:'])
   })
   it('ㄱ자 방 오목 모서리를 덮으면 WALL', () => {
-    expect(kinds(lshape, [box('a', 300, 100)])).toEqual([])
-    expect(kinds(lshape, [box('a', 150, 120, 200, 200)])).toEqual(['a:WALL:'])
+    expect(kinds([lshape],[box('a', 300, 100)])).toEqual([])
+    expect(kinds([lshape],[box('a', 150, 120, 200, 200)])).toEqual(['a:WALL:'])
   })
 })
 
@@ -75,37 +76,37 @@ describe('문 열림 부채꼴', () => {
   })
   it('부채꼴 안 가구는 DOOR_SWING, 실외 문은 제외', () => {
     const f = box('a', 60, 150, 60, 60)
-    expect(kinds(room, [door('d', 0, 150), f])).toEqual(['a:DOOR_SWING:d'])
-    expect(kinds(room, [door('d', 0, 150, 'LEFT_OUT'), f])).toEqual([])
+    expect(kinds([room],[door('d', 0, 150), f])).toEqual(['a:DOOR_SWING:d'])
+    expect(kinds([room],[door('d', 0, 150, 'LEFT_OUT'), f])).toEqual([])
     const out = swingBox(doorSwing(door('d', 0, 150, 'RIGHT_OUT'), room.points)!, 210)
     expect(out.max.x).toBeCloseTo(0) // 방 밖(-x)에 그려짐
   })
   it('부채꼴 밖 가구는 없음', () => {
-    expect(kinds(room, [door('d', 0, 150), box('a', 200, 150)])).toEqual([])
+    expect(kinds([room],[door('d', 0, 150), box('a', 200, 150)])).toEqual([])
   })
 })
 
 describe('문/창 겹침(AC-06-4)', () => {
   it('같은 벽에서 겹치면 FIXTURE_OVERLAP', () => {
-    expect(kinds(room, [door('d', 100, 0, 'LEFT_OUT'), win('w', 150, 0)])).toEqual(['d:FIXTURE_OVERLAP:w'])
+    expect(kinds([room],[door('d', 100, 0, 'LEFT_OUT'), win('w', 150, 0)])).toEqual(['d:FIXTURE_OVERLAP:w'])
   })
   it('다른 벽이면 없음', () => {
-    expect(kinds(room, [door('d', 50, 0, 'LEFT_OUT'), win('w', 0, 60)])).toEqual([])
+    expect(kinds([room],[door('d', 50, 0, 'LEFT_OUT'), win('w', 0, 60)])).toEqual([])
   })
 })
 
 describe('경고 공유', () => {
   it('하이라이트 id는 양쪽 모두', () => {
-    expect([...warnedIds(computeWarnings(room, [box('a', 100, 100), box('b', 150, 100)]))]).toEqual(['a', 'b'])
+    expect([...warnedIds(computeWarnings([room], [box('a', 100, 100), box('b', 150, 100)]))]).toEqual(['a', 'b'])
   })
-  it('같은 room·items면 캐시 재사용', () => {
-    const { rooms: [r], items } = createSample()
-    expect(selectWarnings(r, items)).toBe(selectWarnings(r, items))
+  it('같은 rooms·items면 캐시 재사용', () => {
+    const { rooms, items } = createSample()
+    expect(selectWarnings(rooms, items)).toBe(selectWarnings(rooms, items))
   })
   it('가구 50개 계산이 빠르다', () => {
     const items = Array.from({ length: 50 }, (_, i) => box(`i${i}`, (i % 10) * 40, Math.floor(i / 10) * 60))
     const t = performance.now()
-    for (let k = 0; k < 60; k++) computeWarnings(room, items)
+    for (let k = 0; k < 60; k++) computeWarnings([room], items)
     expect((performance.now() - t) / 60).toBeLessThan(5)
   })
 })
@@ -113,10 +114,10 @@ describe('경고 공유', () => {
 describe('고정 요소 자리 없음(AC-05-4)', () => {
   it('가장 가까운 벽보다 폭이 크면 NO_SPACE', () => {
     const tiny: Room = { id: 'r1', name: '방 1', height: 230, points: [[0, 0], [60, 0], [60, 300], [0, 300]] }
-    expect(kinds(tiny, [door('d', 30, 0)])).toContain('d:NO_SPACE:')
+    expect(kinds([tiny],[door('d', 30, 0)])).toContain('d:NO_SPACE:')
   })
   it('들어가면 경고 없음', () => {
-    expect(kinds(room, [door('d', 200, 0)])).not.toContain('d:NO_SPACE:')
+    expect(kinds([room],[door('d', 200, 0)])).not.toContain('d:NO_SPACE:')
   })
 })
 
@@ -124,15 +125,45 @@ describe('NO_SPACE 허용오차', () => {
   const mk = (len: number): Room => ({ id: 'r1', name: '방 1', height: 230, points: [[0, 0], [len, 0], [len, 300], [0, 300]] })
   const fx = (w: number, x: number): Item => ({ id: 'w', type: 'FIXTURE', modelType: 'WINDOW', position: [x, 0, 0], rotation: [0, 0, 0], size: [w, 100, 5] })
   it('폭==벽 길이면 NO_SPACE 없음', () => {
-    expect(computeWarnings(mk(300), [fx(300, 150)]).some((w) => w.kind === 'NO_SPACE')).toBe(false)
+    expect(computeWarnings([mk(300)], [fx(300, 150)]).some((w) => w.kind === 'NO_SPACE')).toBe(false)
   })
   it('비정수 벽(299.9999999)에서 폭 300 오탐 없음', () => {
-    expect(computeWarnings(mk(300 - 1e-9), [fx(300, 150)]).some((w) => w.kind === 'NO_SPACE')).toBe(false)
+    expect(computeWarnings([mk(300 - 1e-9)], [fx(300, 150)]).some((w) => w.kind === 'NO_SPACE')).toBe(false)
   })
   it('실제로 좁으면 NO_SPACE와 relocateFixtures unfit이 일치', () => {
     const r = mk(299), items = [fx(300, 150), fx(299, 100)]
-    const ns = computeWarnings(r, items).filter((w) => w.kind === 'NO_SPACE').map((w) => w.itemId)
-    expect(relocateFixtures(r.points, items).unfit).toEqual(ns)
+    const ns = computeWarnings([r], items).filter((w) => w.kind === 'NO_SPACE').map((w) => w.itemId)
+    expect(relocateFixtures([r], items).unfit).toEqual(ns)
     expect(ns).toEqual(['w'])
+  })
+})
+
+describe('다중 방 판정', () => {
+  const A: Room = { id: 'r1', name: 'A', height: 240, points: [[0, 0], [300, 0], [300, 300], [0, 300]] }
+  const B: Room = { id: 'r2', name: 'B', height: 200, points: [[300, 0], [600, 0], [600, 300], [300, 300]] }
+
+  it('맞닿은 두 방(간격 0)에 걸친 가구는 WALL, 방 안 가구는 경고 없음', () => {
+    expect(kinds([A, B], [box('span', 300, 150)])).toEqual(['span:WALL:'])
+    expect(kinds([A, B], [box('inB', 450, 150)])).toEqual([])
+    expect(kinds([A], [box('span', 300, 150)])).toEqual(['span:WALL:'])
+  })
+
+  it('호스트 방 벽보다 넓은 문은 NO_SPACE', () => {
+    const a: Room = { id: 'r1', name: 'A', height: 240, points: [[0, 0], [400, 0], [400, 300], [0, 300]] }
+    const b: Room = { id: 'r2', name: 'B', height: 240, points: [[410, 0], [610, 0], [610, 200], [410, 200]] }
+    const wide: Item = { id: 'd', type: 'FIXTURE', modelType: 'DOOR_SINGLE', position: [410, 0, 100], rotation: [0, 0, 0], size: [250, 210, 5] }
+    expect(kinds([a, b], [wide])).toEqual(['d:NO_SPACE:'])
+  })
+
+  it('벽 거리 동률(x=310)이면 배열 앞 방 A 기준 부채꼴', () => {
+    const a: Room = { id: 'r1', name: 'A', height: 240, points: [[0, 0], [300, 0], [300, 300], [0, 300]] }
+    const b: Room = { id: 'r2', name: 'B', height: 240, points: [[320, 0], [620, 0], [620, 300], [320, 300]] }
+    expect(kinds([a, b], [door('d', 310, 150), box('a', 275, 150, 50, 50)])).toEqual(['a:DOOR_SWING:d'])
+  })
+
+  it('서로 다른 방 host의 문은 겹쳐도 서로 경고하지 않는다', () => {
+    const a: Room = { id: 'r1', name: 'A', height: 240, points: [[0, 0], [300, 0], [300, 300], [0, 300]] }
+    const b: Room = { id: 'r2', name: 'B', height: 240, points: [[310, 0], [610, 0], [610, 300], [310, 300]] }
+    expect(kinds([a, b], [door('d1', 301, 150), door('d2', 309, 150)])).toEqual([])
   })
 })

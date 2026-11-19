@@ -1,5 +1,5 @@
-// 고정 요소 버튼 추가용 순수 로직(AC-06-1,3,5). 가장 긴 벽의 빈 구간 중앙에 놓는다.
-import { fixtureKind, nearestWall } from '../scene/geometry'
+// 고정 요소 버튼 추가용 순수 로직(AC-06-1,3,5). 활성 방의 가장 긴 벽 빈 구간 중앙에 놓는다.
+import { fixtureKind, nearestWallIn } from '../scene/geometry'
 import { snap } from '../scene/interaction'
 import { catalogSize, findCatalog } from '../store/catalog'
 import type { Item, Point2, Room } from '../store/types'
@@ -22,12 +22,12 @@ function freeGaps(len: number, occupied: [number, number][]): Gap[] {
   return gaps
 }
 
-/** 고정 요소 신규 항목. 알 수 없는 modelType이거나 고정 요소가 아니면 null. */
-export function makeFixture(modelType: string, room: Room, items: Item[]): Item | null {
+/** 고정 요소 신규 항목. 알 수 없는 modelType이거나 고정 요소가 아니면 null. 점유는 모든 방의 host 벽으로 계산한다. */
+export function makeFixture(modelType: string, rooms: Room[], active: Room, items: Item[]): Item | null {
   const entry = findCatalog(modelType)
   const kind = fixtureKind(modelType)
   if (!entry || !kind) return null
-  const pts = room.points
+  const pts = active.points
   const walls = pts
     .map((a, i) => {
       const b = pts[(i + 1) % pts.length]
@@ -39,17 +39,20 @@ export function makeFixture(modelType: string, room: Room, items: Item[]): Item 
   if (!walls.length) return null
 
   const fixtures = items.filter((it) => it.type === 'FIXTURE')
-  const occupiedOn = (a: Point2): [number, number][] =>
+  const occupiedOn = (wall: { a: Point2; dir: Point2 }): [number, number][] =>
     fixtures.flatMap((f) => {
-      const hit = nearestWall(pts, f.position[0], f.position[2])
-      return hit && hit.a === a ? [[hit.s - f.size[0] / 2, hit.s + f.size[0] / 2] as [number, number]] : []
+      const hit = nearestWallIn(rooms, f.position[0], f.position[2])?.wall
+      if (!hit) return []
+      const sameWall =
+        hit.a[0] === wall.a[0] && hit.a[1] === wall.a[1] && hit.dir[0] === wall.dir[0] && hit.dir[1] === wall.dir[1]
+      return sameWall ? [[hit.s - f.size[0] / 2, hit.s + f.size[0] / 2] as [number, number]] : []
     })
 
   const width = entry.w
   // 폭이 들어가는 가장 긴 벽의 가장 큰 빈 구간. 없으면 가장 긴 벽 중앙(겹침은 경고 시스템이 표시).
   let place: { wall: (typeof walls)[number]; s: number; w: number } | null = null
   for (const wall of walls) {
-    const best = freeGaps(wall.len, occupiedOn(wall.a))
+    const best = freeGaps(wall.len, occupiedOn(wall))
       .filter((g) => g.to - g.from >= width)
       .sort((g1, g2) => g2.to - g2.from - (g1.to - g1.from))[0]
     if (best) {
