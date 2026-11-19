@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Point2 } from '../store/types'
-import { HIT_PX, hitPoint, hitRadiusCm, hitSegment, traceClickAction } from './handles'
+import { cornerClickAction, GRID_MIN_PX, gridSteps, HIT_PX, hitPoint, hitRadiusCm, hitSegment, isDragMove, SLOP_PX, traceClickAction } from './handles'
 
 const sq: Point2[] = [
   [0, 0],
@@ -64,9 +64,15 @@ describe('traceClickAction', () => {
     expect(traceClickAction('baseline', 1, [], [5, 5], 6)).toEqual({ kind: 'baseline', i: 1 })
     expect(traceClickAction('baseline', 2, [], [5, 5], 6)).toEqual({ kind: 'none' })
   })
-  it('업로드 전·닫힌 뒤에는 아무것도 하지 않는다', () => {
+  it('업로드 전에는 아무것도 하지 않는다', () => {
     expect(traceClickAction('upload', 0, [], [5, 5], 6).kind).toBe('none')
-    expect(traceClickAction('closed', 2, tri, [50, 50], 6).kind).toBe('none')
+  })
+  it('닫힌 뒤: 점 위 = 선택(첫 점도 닫기 아님), 선 위 = 삽입, 빈 곳 = 선택 해제', () => {
+    expect(traceClickAction('closed', 2, tri, [100, 3], 6)).toEqual({ kind: 'select', i: 1 })
+    expect(traceClickAction('closed', 2, tri, [2, 2], 6)).toEqual({ kind: 'select', i: 0 })
+    expect(traceClickAction('closed', 2, tri, [50, 2], 6)).toEqual({ kind: 'insert', wall: 0 })
+    expect(traceClickAction('closed', 2, tri, [48, 52], 6)).toEqual({ kind: 'insert', wall: 2 }) // 닫는 선(2->0)
+    expect(traceClickAction('closed', 2, tri, [80, 40], 6)).toEqual({ kind: 'select', i: null })
   })
   it('첫 점 근처는 3점 이상일 때만 닫기', () => {
     expect(traceClickAction('corners', 2, tri, [3, 3], 6).kind).toBe('close')
@@ -76,5 +82,44 @@ describe('traceClickAction', () => {
     expect(traceClickAction('corners', 2, tri, [100, 2], 6).kind).toBe('none')
     expect(traceClickAction('corners', 2, tri, [50, 50], 6).kind).toBe('add')
     expect(traceClickAction('corners', 2, [], [50, 50], 6).kind).toBe('add')
+  })
+})
+
+describe('isDragMove', () => {
+  it('SLOP_PX 이하는 클릭, 넘으면 드래그', () => {
+    expect(isDragMove(0, 0)).toBe(false)
+    expect(isDragMove(SLOP_PX, 0)).toBe(false)
+    expect(isDragMove(SLOP_PX, 1)).toBe(true)
+    expect(isDragMove(-3, -3)).toBe(true)
+  })
+})
+
+describe('gridSteps', () => {
+  it('10cm 격자가 충분히 넓으면 10/100', () => {
+    expect(gridSteps(GRID_MIN_PX / 10)).toEqual({ cell: 10, section: 100 })
+    expect(gridSteps(2)).toEqual({ cell: 10, section: 100 })
+  })
+  it('줌아웃할수록 굵은 격자', () => {
+    expect(gridSteps(0.5)).toEqual({ cell: 50, section: 100 })
+    expect(gridSteps(0.1)).toEqual({ cell: 100, section: 500 })
+    expect(gridSteps(0.001)).toEqual({ cell: 500, section: 1000 })
+  })
+  it('잘못된 zoom이면 가장 굵은 격자', () => {
+    expect(gridSteps(0).cell).toBe(500)
+    expect(gridSteps(NaN).cell).toBe(500)
+  })
+})
+
+describe('cornerClickAction', () => {
+  it('점 위 = 점 선택(벽보다 우선)', () => {
+    expect(cornerClickAction(sq, 0, [2, 1], 6)).toEqual({ kind: 'corner', i: 0 })
+  })
+  it('벽 위 첫 클릭 = 벽 선택, 선택한 벽 다시 클릭 = 삽입', () => {
+    expect(cornerClickAction(sq, null, [50, 2], 6)).toEqual({ kind: 'wall', i: 0 })
+    expect(cornerClickAction(sq, 1, [50, 2], 6)).toEqual({ kind: 'wall', i: 0 })
+    expect(cornerClickAction(sq, 0, [50, 2], 6)).toEqual({ kind: 'insert', wall: 0 })
+  })
+  it('빈 곳 = 선택 해제', () => {
+    expect(cornerClickAction(sq, 0, [50, 50], 6)).toEqual({ kind: 'corner', i: null })
   })
 })

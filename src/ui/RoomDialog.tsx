@@ -1,36 +1,15 @@
-import { useId, useState } from 'react'
+import { useState } from 'react'
 import type { RoomInputErrors } from '../io/validate'
 import { useDocStore } from '../store/useDocStore'
 import { useTraceStore } from '../store/useTraceStore'
 import { useUiStore } from '../store/useUiStore'
 import Modal from './Modal'
-import { countOutsideFurniture, formRoom, initialRoomForm, roomFormErrors, submitRoomForm, type RoomForm } from './roomForm'
+import { countOutsideFurniture, formItems, formRoom, initialRoomForm, notchesError, roomFormErrors, submitRoomForm, type RoomForm } from './roomForm'
 import RoomPreview from './RoomPreview'
+import NumField from './NumField'
+import NotchSection from './NotchSection'
 
 type NumKey = 'width' | 'depth' | 'height' | 'cutWidth' | 'cutDepth'
-
-function NumField({ label, value, error, onChange }: { label: string; value: string; error?: string; onChange: (v: string) => void }) {
-  const id = useId()
-  return (
-    <div className="field">
-      <label htmlFor={id}>{label}</label>
-      <input
-        id={id}
-        inputMode="numeric"
-        value={value}
-        aria-invalid={error !== undefined}
-        aria-describedby={error ? `${id}-err` : undefined}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      <span className="unit">cm</span>
-      {error && (
-        <span id={`${id}-err`} className="field-error">
-          {error}
-        </span>
-      )}
-    </div>
-  )
-}
 
 /** S-03 방 만들기. 오류가 하나라도 있으면 "만들기" 비활성(AC-03-3). */
 export default function RoomDialog({ onClose }: { onClose: () => void }) {
@@ -38,9 +17,10 @@ export default function RoomDialog({ onClose }: { onClose: () => void }) {
   const hasItems = items.length > 0
   const [form, setForm] = useState<RoomForm>(() => initialRoomForm(useDocStore.getState().room))
   const errors: RoomInputErrors = roomFormErrors(form)
-  const invalid = Object.keys(errors).length > 0
+  const staleNotches = notchesError(form)
+  const invalid = Object.keys(errors).length > 0 || staleNotches !== null
   const next = formRoom(form)
-  const outside = next && form.keepItems ? countOutsideFurniture(next, items) : 0
+  const outside = next && form.keepItems ? countOutsideFurniture(next, formItems(form, items)) : 0
   const set = (k: NumKey) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
 
   const submit = (e: { preventDefault: () => void }) => {
@@ -56,7 +36,7 @@ export default function RoomDialog({ onClose }: { onClose: () => void }) {
         <div role="radiogroup" aria-label="방 모양" className="row">
           {(['rect', 'L'] as const).map((k) => (
             <label key={k} className="radio-label">
-              <input type="radio" name="room-kind" checked={form.kind === k} onChange={() => setForm((f) => ({ ...f, kind: k }))} />{' '}
+              <input type="radio" name="room-kind" checked={form.kind === k} onChange={() => setForm((f) => ({ ...f, kind: k, notches: [] }))} />{' '}
               {k === 'rect' ? '직사각형' : 'ㄱ자'}
             </label>
           ))}
@@ -70,7 +50,13 @@ export default function RoomDialog({ onClose }: { onClose: () => void }) {
             <p className="hint">잘리는 영역은 우상단 모서리입니다.</p>
           </>
         )}
-        <RoomPreview room={next} />
+        <RoomPreview room={next} numbered />
+        {staleNotches && (
+          <p role="alert" className="field-error">
+            {staleNotches} 홈/돌출을 지우거나 값을 고쳐 주세요.
+          </p>
+        )}
+        <NotchSection key={form.kind} form={form} outline={next ? next.points : null} onChange={setForm} />
         <NumField label="천장고" value={form.height} error={errors.height} onChange={set('height')} />
         {hasItems && (
           <fieldset className="keep">
@@ -97,7 +83,7 @@ export default function RoomDialog({ onClose }: { onClose: () => void }) {
               onClose()
             }}
           >
-            평면도로 만들기
+            그려서 만들기(평면도 배경 선택 가능)
           </button>
         </div>
         <div className="row end">

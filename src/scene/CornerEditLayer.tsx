@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react'
 import { useEditStore } from '../store/useEditStore'
 import type { Room } from '../store/types'
-import { hitPoint, hitSegment } from './handles'
+import { cornerClickAction, hitPoint } from './handles'
 import { CatchPlane, Dots, Polyline, Segments, type PlaneHandlers } from './planeInput'
 
 const C = { wall: '#1565c0', corner: '#1565c0', selected: '#ff6f00' }
@@ -33,11 +33,10 @@ export default function CornerEditLayer({ room }: { room: Room }) {
     cancel: () => useEditStore.getState().cancelCornerDrag(),
     click: (p, r) => {
       const e = useEditStore.getState()
-      const c = hitPoint(points, p, r)
-      if (c >= 0) return e.selectCorner(c)
-      const w = hitSegment(points, p, r)
-      if (w >= 0) return e.selectWall(w) // WallEditor가 길이 입력을 연다(AC-05-2)
-      e.selectCorner(null) // 빈 곳: 선택 해제
+      const a = cornerClickAction(points, e.selectedWall, p, r)
+      if (a.kind === 'corner') e.selectCorner(a.i) // null = 빈 곳: 선택 해제
+      else if (a.kind === 'wall') e.selectWall(a.i) // WallEditor가 길이 입력을 연다(AC-05-2)
+      else e.insertCorner(a.wall, p[0], p[1]) // 선택한 벽 다시 클릭: 그 자리에 점(AC-05-5). 드래그 중이면 스토어가 거부
     },
   }
 

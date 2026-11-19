@@ -4,7 +4,7 @@ import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { Line } from '@react-three/drei'
 import type { Ray } from 'three'
 import type { Point2 } from '../store/types'
-import { HIT_PX, SLOP_PX, hitRadiusCm } from './handles'
+import { HIT_PX, hitRadiusCm, isDragMove } from './handles'
 import { groundPoint } from './interaction'
 
 export interface PlaneHandlers {
@@ -18,6 +18,8 @@ export interface PlaneHandlers {
   cancel: () => void
   /** 움직이지 않고 뗐을 때(잡은 경우 포함) */
   click: (p: Point2, r: number) => void
+  /** 드래그 중이 아닐 때 포인터가 움직일 때마다(선택). 이벤트 단위 호출이라 프레임마다 부르지 않는다 */
+  hover?: (p: Point2) => void
 }
 
 type PEvent = ThreeEvent<PointerEvent> & { ray: Ray }
@@ -49,7 +51,7 @@ export function CatchPlane({ y, handlers }: { y: number; handlers: PlaneHandlers
       if (c) c.enabled = enabled
     }
     const radius = () => hitRadiusCm(HIT_PX, get().camera.zoom)
-    const moved = (s: Press, e: PointerEvent) => Math.hypot(e.clientX - s.x, e.clientY - s.y) > SLOP_PX
+    const moved = (s: Press, e: PointerEvent) => isDragMove(e.clientX - s.x, e.clientY - s.y)
     const finish = (commit: boolean) => {
       const s = press.current
       press.current = null
@@ -74,6 +76,10 @@ export function CatchPlane({ y, handlers }: { y: number; handlers: PlaneHandlers
         },
         onPointerMove: (e: PEvent) => {
           const s = press.current
+          if (!s?.dragging && h.current.hover) {
+            const p = groundPoint(e.ray)
+            if (p) h.current.hover(p)
+          }
           if (!s || !s.grabbed || s.id !== e.pointerId) return
           if (!s.dragging && !moved(s, e.nativeEvent)) return
           const p = groundPoint(e.ray)

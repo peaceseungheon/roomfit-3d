@@ -22,7 +22,7 @@ interface DocState extends DocData {
     keepItems?: boolean,
   ) => boolean
   /** 트레이싱 다각형으로 방 교체(Undo 1단계). validateRoom 실패 시 상태 유지 후 false. */
-  createPolygonRoom: (points: Room['points'], height: number, keepItems?: boolean) => boolean
+  createPolygonRoom: (points: Room['points'], height: number, keepItems?: boolean, shift?: [number, number]) => boolean
   /** 규약 강제(y=0, 크기 clamp). 숫자가 유한하지 않으면 거부하고 false. 10cm 스냅은 scene 책임. */
   addItem: (item: Item) => boolean
   /** 없는 id이거나 유효하지 않은 값이면 상태를 유지하고 false. */
@@ -55,6 +55,12 @@ const clampElevations = (items: Item[], ceil: number): Item[] =>
   items.some((it) => (it.elevation ?? 0) > ceil)
     ? items.map((it) => ((it.elevation ?? 0) > ceil ? { ...it, elevation: ceil } : it))
     : items
+
+/** 방이 (dx, dz)만큼 옮겨졌을 때 가구·고정 요소를 같이 옮긴다(홈/돌출 확정). 이동이 없으면 같은 배열. */
+export const shiftItems = (items: Item[], shift?: [number, number]): Item[] =>
+  !shift || (shift[0] === 0 && shift[1] === 0)
+    ? items
+    : items.map((it) => ({ ...it, position: [it.position[0] + shift[0], it.position[1], it.position[2] + shift[1]] }))
 
 const clamp = (v: number, hi: number) => Math.min(Math.max(v, 1), hi)
 
@@ -100,12 +106,12 @@ export const useDocStore = create<DocState>()(
           }))
           return true
         },
-        createPolygonRoom: (points, height, keepItems = true) => {
+        createPolygonRoom: (points, height, keepItems = true, shift) => {
           const room = { height, points }
           if (validateRoom(room).length) return false
           set((s) => ({
             room,
-            items: keepItems ? clampElevations(s.items, height) : [],
+            items: keepItems ? clampElevations(shiftItems(s.items, shift), height) : [],
             pristine: false,
           }))
           return true

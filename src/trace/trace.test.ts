@@ -16,6 +16,7 @@ import {
   IMAGE_MAX_BYTES,
   imageRect,
   movePoint,
+  notchWall,
   pxToCm,
   relocateFixtures,
   segmentsTouch,
@@ -194,6 +195,7 @@ describe('useTraceStore', () => {
     t().setBaselinePoint(0, 0, 0)
     t().setBaselinePoint(1, 100, 0)
     t().applyScale(100) // 1 cm/px
+    useTraceStore.setState({ ortho: false }) // 대각선 점을 직접 찍는 시나리오
     ;[[0, 0], [100, 100], [100, 0], [0, 100]].forEach(([x, z]) => t().addTracePoint(x, z))
     expect(t().closeTrace()).toBe(false)
     expect(t().error?.crossings).toEqual([[0, 2]])
@@ -403,5 +405,113 @@ describe('reopenTrace / redoBaseline', () => {
     t().applyScale(200)
     expect(t().scale).toBe(2)
     expect(t().corners[1]).toEqual([200, 0]) // px 유지
+  })
+})
+
+describe('notchWall (홈/돌출)', () => {
+  const ok = (r: ReturnType<typeof notchWall>) => {
+    if (!r.ok) throw new Error(r.error)
+    return r.value
+  }
+
+  it('사각형 위쪽 벽에 홈 -> ㄷ자 8점', () => {
+    const v = ok(notchWall(rect, 0, 100, 200, 100, 'cut'))
+    expect(v).toEqual([[0, 0], [100, 0], [100, 100], [300, 100], [300, 0], [400, 0], [400, 300], [0, 300]])
+    expect(signedArea(v)).toBeGreaterThan(0)
+  })
+
+  it('돌출 -> T자(바깥으로, 최소 좌표 (0,0) 재정규화)', () => {
+    const bar: Point2[] = [[0, 0], [300, 0], [300, 100], [0, 100]]
+    const v = ok(notchWall(bar, 0, 100, 100, 200, 'bump'))
+    expect(v).toEqual([[0, 200], [100, 200], [100, 0], [200, 0], [200, 200], [300, 200], [300, 300], [0, 300]])
+    expect(signedArea(v)).toBeGreaterThan(0)
+  })
+
+  it('벽 끝에 붙은 돌출은 중복 점 없이 7점', () => {
+    const v = ok(notchWall(rect, 1, 0, 100, 50, 'bump'))
+    expect(v).toHaveLength(7)
+    expect(v).toContainEqual([450, 100])
+  })
+
+  it('반복 적용(홈 두 번 -> 점 12개)', () => {
+    const a = ok(notchWall(rect, 0, 50, 100, 50, 'cut'))
+    const b = ok(notchWall(a, 4, 50, 100, 50, 'cut'))
+    expect(b).toHaveLength(12)
+  })
+
+  it('벽 범위 초과·최소값 미만·잘못된 벽 거부', () => {
+    expect(notchWall(rect, 0, 300, 200, 50, 'cut').ok).toBe(false)
+    expect(notchWall(rect, 0, -1, 100, 50, 'cut').ok).toBe(false)
+    expect(notchWall(rect, 0, 0, 5, 50, 'cut').ok).toBe(false)
+    expect(notchWall(rect, 0, 0, 100, 5, 'cut').ok).toBe(false)
+    expect(notchWall(rect, 9, 0, 100, 50, 'cut').ok).toBe(false)
+    expect(notchWall(rect, 0, NaN, 100, 50, 'cut').ok).toBe(false)
+    const r = notchWall(rect, 0, 300, 200, 50, 'cut')
+    expect(!r.ok && r.error).toMatch(/벽/)
+  })
+
+  it('홈이 맞은편 벽에 닿거나 넘으면 자기 교차로 거부', () => {
+    expect(notchWall(rect, 0, 100, 100, 300, 'cut').ok).toBe(false)
+    expect(notchWall(rect, 0, 100, 100, 400, 'cut').ok).toBe(false)
+    expect(notchWall(rect, 0, 100, 100, 299, 'cut').ok).toBe(true)
+  })
+
+  it('3000cm 상한 초과 돌출 거부', () => {
+    const big: Point2[] = [[0, 0], [3000, 0], [3000, 300], [0, 300]]
+    expect(notchWall(big, 1, 0, 100, 100, 'bump').ok).toBe(false)
+  })
+
+  it('시계 방향(signedArea<0) 입력도 안쪽/바깥쪽을 올바로 판단하고 결과는 signedArea>0', () => {
+    const cw: Point2[] = [[0, 0], [0, 300], [400, 300], [400, 0]]
+    const v = ok(notchWall(cw, 0, 100, 100, 50, 'cut'))
+    expect(signedArea(v)).toBeCloseTo(400 * 300 - 100 * 50)
+  })
+
+  it('입력 배열을 변경하지 않는다', () => {
+    const src: Point2[] = [[0, 0], [400, 0], [400, 300], [0, 300]]
+    const snap = JSON.stringify(src)
+    const out = ok(notchWall(src, 0, 100, 200, 100, 'cut'))
+    expect(JSON.stringify(src)).toBe(snap)
+    expect(out).not.toBe(src)
+  })
+
+  it('비직각 벽에서도 벽 방향·법선으로 동작', () => {
+    const tri: Point2[] = [[0, 0], [300, 400], [-100, 500]]
+    const v = ok(notchWall(tri, 0, 100, 200, 20, 'cut'))
+    expect(v).toEqual([[100, 0], [160, 80], [144, 92], [264, 252], [280, 240], [400, 400], [0, 500]])
+    expect(signedArea(v)).toBeGreaterThan(0)
+  })
+})
+
+describe('notchWall 경계(벽 시작/끝에 닿는 홈·돌출)', () => {
+  const ok = (r: ReturnType<typeof notchWall>) => {
+    if (!r.ok) throw new Error(r.error)
+    return r.value
+  }
+  it('모서리 홈: 벽1 위치0 너비100 깊이50 -> 6점(꼭짓점 대체, ㄱ자)', () => {
+    const v = ok(notchWall(rect, 1, 0, 100, 50, 'cut'))
+    expect(v).toHaveLength(6)
+    expect(v).toContainEqual([350, 0])
+    expect(v).toContainEqual([350, 100])
+    expect(signedArea(v)).toBeCloseTo(400 * 300 - 100 * 50)
+  })
+  it('모서리 홈: 벽1 위치200 너비100(벽 끝에 닿음; 벽1 길이 300)', () => {
+    const v = ok(notchWall(rect, 1, 200, 100, 50, 'cut'))
+    expect(v).toHaveLength(6)
+    expect(signedArea(v)).toBeCloseTo(400 * 300 - 100 * 50)
+  })
+  it('벽 전체 너비 홈 -> 사각형이 깊이만큼 줄어든다(4점)', () => {
+    const v = ok(notchWall(rect, 1, 0, 300, 50, 'cut'))
+    expect(v).toEqual([[0, 0], [350, 0], [350, 300], [0, 300]])
+  })
+  it('마지막 벽(wrap)의 끝 홈', () => {
+    const v = ok(notchWall(rect, 3, 200, 100, 50, 'cut'))
+    expect(v).toHaveLength(6)
+    expect(signedArea(v)).toBeCloseTo(400 * 300 - 100 * 50)
+  })
+  it('같은 경계의 돌출도 대칭으로 동작', () => {
+    expect(signedArea(ok(notchWall(rect, 1, 0, 100, 50, 'bump')))).toBeCloseTo(400 * 300 + 100 * 50)
+    expect(signedArea(ok(notchWall(rect, 1, 200, 100, 50, 'bump')))).toBeCloseTo(400 * 300 + 100 * 50)
+    expect(ok(notchWall(rect, 1, 0, 300, 50, 'bump'))).toHaveLength(6)
   })
 })

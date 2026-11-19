@@ -1,6 +1,6 @@
 // 평면도 트레이싱·모서리 편집 순수 로직(FR-04, FR-05). 길이 cm, 좌표 [x, z], 이미지 y -> 방 z.
 import { ROOM_MAX, validateRoom } from '../io/validate'
-import { FIT_EPS, nearestWall, signedArea } from '../scene/geometry'
+import { FIT_EPS, nearestWall, outwardNormal, signedArea } from '../scene/geometry'
 import type { Item, Point2 } from '../store/types'
 
 /** 이미지 용량 상한. PRD에 수치가 없어 10MB로 둔다(보고 사항). */
@@ -171,4 +171,69 @@ export function relocateFixtures(points: Point2[], items: Item[]): { items: Item
     return { ...it, position: pos }
   })
   return { items: next, unfit }
+}
+
+// ---- AC-03-5 홈/돌출 ----
+export type NotchKind = 'cut' | 'bump'
+
+/**
+ * 벽 wallIndex(points[i]->points[i+1])의 시작점에서 offset만큼 간 곳에 width 구간을 잡고, 안쪽(cut) 또는 바깥쪽(bump)으로
+ * depth만큼 민 꼭짓점을 끼운 새 배열을 돌려준다. 홈이 벽 시작/끝에 닿으면 그 꼭짓점을 새 점으로 대체한다(모서리 홈).
+ * 결과는 closePolygon으로 검증·정규화한다. shift는 정규화가 방을 옮긴 양(+이면 오른쪽/아래). 입력은 변경하지 않는다.
+ */
+export function notchWallShifted(
+  points: Point2[],
+  wallIndex: number,
+  offset: number,
+  width: number,
+  depth: number,
+  kind: NotchKind,
+): Check<{ points: Point2[]; shift: Point2 }> {
+  const a = points[wallIndex]
+  const bi = (wallIndex + 1) % points.length
+  const b = points[bi]
+  if (!Number.isInteger(wallIndex) || !a || !b) return fail('벽을 찾을 수 없습니다')
+  if (![offset, width, depth].every(Number.isFinite)) return fail('위치·너비·깊이는 숫자여야 합니다')
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1])
+  if (len === 0) return fail('길이가 0인 벽입니다')
+  if (offset < 0 || offset + width > len + 1e-6) return fail(`벽 길이(${Math.round(len)}cm) 안에서 위치+너비를 정해 주세요`)
+  if (width < WALL_MIN || depth < WALL_MIN) return fail(`너비와 깊이는 ${WALL_MIN}cm 이상이어야 합니다`)
+  const dir: Point2 = [(b[0] - a[0]) / len, (b[1] - a[1]) / len]
+  const n = outwardNormal(a, b, signedArea(points))
+  const push = kind === 'bump' ? depth : -depth
+  const at = (s: number, d: number): Point2 => [
+    Math.round(a[0] + dir[0] * s + n[0] * d),
+    Math.round(a[1] + dir[1] * s + n[1] * d),
+  ]
+  const end = offset + width
+  const atStart = offset <= 1e-6
+  const atEnd = end >= len - 1e-6
+  const cut = kind === 'cut'
+  const added = [
+    ...(!atStart ? [at(offset, 0)] : []),
+    at(offset, push),
+    at(end, push),
+    ...(!atEnd ? [at(end, 0)] : []),
+  ]
+  const dropA = cut && atStart
+  const dropB = cut && atEnd
+  const next = points.flatMap((p, i): Point2[] =>
+    i === wallIndex ? [...(dropA ? [] : [p]), ...added] : i === bi && dropB ? [] : [p],
+  )
+  const closed = closePolygon(next)
+  if (!closed.ok) return fail(closed.message)
+  const shift: Point2 = [-Math.min(...next.map((p) => p[0])), -Math.min(...next.map((p) => p[1]))]
+  return { ok: true, value: { points: closed.value, shift } }
+}
+
+export function notchWall(
+  points: Point2[],
+  wallIndex: number,
+  offset: number,
+  width: number,
+  depth: number,
+  kind: NotchKind,
+): Check<Point2[]> {
+  const r = notchWallShifted(points, wallIndex, offset, width, depth, kind)
+  return r.ok ? { ok: true, value: r.value.points } : r
 }

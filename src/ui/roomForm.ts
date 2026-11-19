@@ -2,8 +2,9 @@
 import { validateRoomInput, type RoomInput, type RoomInputErrors } from '../io/validate'
 import { isDragging } from '../scene/dragSession'
 import { computeWarnings } from '../scene/collision'
-import { lPoints, rectPoints, useDocStore } from '../store/useDocStore'
-import type { Item, Room } from '../store/types'
+import { lPoints, rectPoints, shiftItems, useDocStore } from '../store/useDocStore'
+import type { Item, Point2, Room } from '../store/types'
+import { applyNotches, applyNotchesShifted, type NotchSpec } from './roomNotch'
 
 export interface RoomForm {
   kind: 'rect' | 'L'
@@ -13,6 +14,8 @@ export interface RoomForm {
   cutWidth: string
   cutDepth: string
   keepItems: boolean
+  /** 사각형/ㄱ자 위에 차례로 적용한 홈·돌출(AC-03-5). 없으면 프리셋 그대로 */
+  notches?: NotchSpec[]
 }
 
 const num = (s: string): number => (/^-?\d+$/.test(s.trim()) ? Number(s) : NaN)
@@ -53,7 +56,11 @@ export function initialRoomForm(room: Room): RoomForm {
 export function submitRoomForm(f: RoomForm): boolean {
   if (isDragging() || Object.keys(roomFormErrors(f)).length) return false
   const i = toRoomInput(f)
-  const { createRectRoom, createLRoom } = useDocStore.getState()
+  const { createRectRoom, createLRoom, createPolygonRoom } = useDocStore.getState()
+  if (f.notches?.length) {
+    const r = formRoom(f)
+    return r ? createPolygonRoom(r.points, r.height, f.keepItems, formShift(f)) : false
+  }
   return f.kind === 'L'
     ? createLRoom(i.width, i.depth, i.height, i.cutWidth as number, i.cutDepth as number, f.keepItems)
     : createRectRoom(i.width, i.depth, i.height, f.keepItems)
@@ -61,10 +68,35 @@ export function submitRoomForm(f: RoomForm): boolean {
 
 /** 폼 입력이 유효하면 확정 시 만들어질 방 윤곽. 유효하지 않으면 null(미리보기·방 밖 개수 안내용). */
 export function formRoom(f: RoomForm): Room | null {
+  const base = presetPoints(f)
+  if (!base) return null
+  const pts = applyNotches(base, f.notches ?? [])
+  return pts.ok ? { height: toRoomInput(f).height, points: pts.value } : null
+}
+
+/** 홈·돌출 정규화로 방이 옮겨진 양(위/왼쪽 돌출이면 +). 가구는 keepItems일 때 이만큼 같이 옮겨진다. */
+export function formShift(f: RoomForm): [number, number] {
+  const base = presetPoints(f)
+  const r = base ? applyNotchesShifted(base, f.notches ?? []) : null
+  return r?.ok ? r.value.shift : [0, 0]
+}
+
+/** 확정 시 방 기준 상대 위치가 유지된 가구 목록(방 밖 개수 계산용). */
+export const formItems = (f: RoomForm, items: Item[]): Item[] => shiftItems(items, formShift(f))
+
+/** 홈·돌출 적용 전 프리셋 윤곽. 입력이 유효하지 않으면 null. */
+export function presetPoints(f: RoomForm): Point2[] | null {
   if (Object.keys(roomFormErrors(f)).length) return null
   const i = toRoomInput(f)
-  const points = f.kind === 'L' ? lPoints(i.width, i.depth, i.cutWidth as number, i.cutDepth as number) : rectPoints(i.width, i.depth)
-  return { height: i.height, points }
+  return f.kind === 'L' ? lPoints(i.width, i.depth, i.cutWidth as number, i.cutDepth as number) : rectPoints(i.width, i.depth)
+}
+
+/** 프리셋 값은 유효한데 쌓아 둔 홈·돌출이 더는 맞지 않을 때의 문구(없으면 null). */
+export function notchesError(f: RoomForm): string | null {
+  const base = presetPoints(f)
+  if (!base) return null
+  const r = applyNotches(base, f.notches ?? [])
+  return r.ok ? null : r.error
 }
 
 /** 새 방에서 방 밖(벽 간섭, AC-11-5)이 되는 가구 개수. 고정 요소는 세지 않는다. */

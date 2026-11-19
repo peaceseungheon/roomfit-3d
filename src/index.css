@@ -116,6 +116,11 @@ button:disabled { opacity: 0.4; cursor: default; }
 .trace-stage { flex: 1; position: relative; overflow: auto; background: #eceff1; }
 .trace-stage img { max-width: 100%; }
 .trace-drop { margin: 8px 0; padding: 12px; border: 2px dashed #90a4ae; text-align: center; }
+.draw-tools { margin: 8px 0; }
+.draw-tools .field { grid-template-columns: 1fr auto auto; }
+.draw-tools .field label { grid-column: 1 / -1; }
+.trace-bg { margin: 8px 0; }
+.trace-bg summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
 .trace-side { width: 280px; padding: 12px; overflow: auto; border-left: 1px solid #cfd8dc; }
 @media (max-width: 767px) { .trace-body { flex-direction: column; } .trace-side { width: auto; max-height: 45vh; border-left: 0; border-top: 1px solid #cfd8dc; } }
 .suggest { margin: 8px 0; }

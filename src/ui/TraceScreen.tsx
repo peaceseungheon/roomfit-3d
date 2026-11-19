@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useDocStore } from '../store/useDocStore'
-import { selectCanClose, traceStep, useTraceStore, type TraceStep } from '../store/useTraceStore'
+import { selectCanClose, selectIsBlank, traceStep, useTraceStore, type TraceStep } from '../store/useTraceStore'
 import { TRACE_DEFAULT_HEIGHT } from '../trace/trace'
 import ConfirmDialog from './ConfirmDialog'
 
@@ -10,11 +10,24 @@ const STEPS: [TraceStep[], string][] = [
   [['corners', 'closed'], '③ 모서리'],
 ]
 
+/** 빈 캔버스(이미지 없이 그리기)의 단계 표시 */
+const BLANK_STEPS: [TraceStep[], string][] = [
+  [['corners'], '① 그리기'],
+  [['closed'], '② 방 생성'],
+]
+
+const BLANK_GUIDE: Record<TraceStep, string> = {
+  upload: '',
+  baseline: '',
+  corners: '격자 위를 클릭해 모서리를 순서대로 찍으세요. 첫 점을 다시 누르거나 [닫기]를 누르면 닫힙니다. 단위는 cm입니다.',
+  closed: '다각형이 닫혔습니다. 선 위를 눌러 점을 추가하고, 점을 눌러 선택한 뒤 [점 삭제]할 수 있습니다. 천장고를 확인하고 [방 생성]을 누르세요.',
+}
+
 const GUIDE: Record<TraceStep, string> = {
   upload: '평면도 이미지(PNG/JPG)를 선택하세요.',
   baseline: '이미지 위에 기준선 두 점을 찍고 실제 길이(cm)를 입력해 [적용]을 누르세요.',
   corners: '모서리를 순서대로 클릭하세요. 첫 점을 다시 누르거나 [닫기]를 누르면 닫힙니다.',
-  closed: '다각형이 닫혔습니다. 천장고를 확인하고 [방 생성]을 누르세요.',
+  closed: '다각형이 닫혔습니다. 선 위를 눌러 점을 추가하고, 점을 눌러 선택한 뒤 [점 삭제]할 수 있습니다. 천장고를 확인하고 [방 생성]을 누르세요.',
 }
 
 function Upload() {
@@ -68,6 +81,77 @@ function BaselineForm() {
       </button>
       {scale !== null && <span className="hint">축척 설정됨 ({scale.toFixed(3)} cm/px)</span>}
     </div>
+  )
+}
+
+/** 그리기 보조(FR-04): 직각 보정 토글, 길이 입력으로 다음 점 추가(방향은 마지막 포인터 위치 쪽 축). */
+function DrawTools() {
+  const id = useId()
+  const ortho = useTraceStore((s) => s.ortho)
+  const count = useTraceStore((s) => s.corners.length)
+  const err = useTraceStore((s) => s.lengthError)
+  const [len, setLen] = useState('')
+  const add = () => {
+    if (useTraceStore.getState().addTracePointByLength(/^\d+(\.\d+)?$/.test(len.trim()) ? Number(len) : NaN)) setLen('')
+  }
+  return (
+    <div className="draw-tools">
+      <label className="radio-label">
+        <input type="checkbox" checked={ortho} onChange={(e) => useTraceStore.getState().setOrtho(e.target.checked)} /> 수평·수직 고정
+      </label>
+      <div className="field">
+        <label htmlFor={id}>다음 점까지 길이</label>
+        <input
+          id={id}
+          inputMode="decimal"
+          value={len}
+          aria-invalid={err !== null}
+          aria-describedby={err ? `${id}-err` : undefined}
+          disabled={count === 0}
+          onChange={(e) => {
+            setLen(e.target.value)
+            useTraceStore.getState().clearLengthError()
+          }}
+          onKeyDown={(e: KeyboardEvent) => e.key === 'Enter' && add()}
+        />
+        <span className="unit">cm</span>
+        <button type="button" disabled={count === 0} onClick={add}>
+          점 추가
+        </button>
+        {err && (
+          <span id={`${id}-err`} role="alert" className="field-error">
+            {err}
+          </span>
+        )}
+      </div>
+      <p className="hint">{count === 0 ? '먼저 시작점을 클릭하세요.' : '마우스를 둔 쪽 방향으로 입력한 길이만큼 점이 추가됩니다.'}</p>
+    </div>
+  )
+}
+
+/** 닫힌 뒤 선택한 점 삭제(AC-05-5). */
+function DeleteTool() {
+  const selected = useTraceStore((s) => s.selected)
+  const count = useTraceStore((s) => s.corners.length)
+  return (
+    <div className="row">
+      <button type="button" disabled={selected === null || count <= 3} onClick={() => selected !== null && useTraceStore.getState().deleteTracePoint(selected)}>
+        점 삭제
+      </button>
+      {count <= 3 && <span className="hint">꼭짓점은 3개 이상 있어야 합니다.</span>}
+    </div>
+  )
+}
+
+/** 빈 캔버스에서 배경 이미지를 올리는 선택 항목(올리면 기준선 단계가 필요하다). */
+function BackgroundOption() {
+  const count = useTraceStore((s) => s.corners.length)
+  return (
+    <details className="trace-bg">
+      <summary>배경 이미지 올리기(선택)</summary>
+      <p className="hint">평면도 이미지를 깔고 따라 그릴 수 있습니다. 올리면 기준선으로 축척을 정해야 하며{count > 0 ? ' 지금까지 찍은 점은 지워집니다' : ''}.</p>
+      <Upload />
+    </details>
   )
 }
 
@@ -200,13 +284,16 @@ function Dialog({ stage }: { stage?: ReactNode }) {
   const canClose = useTraceStore(selectCanClose)
   const error = useTraceStore((s) => s.error)
   const scaled = useTraceStore((s) => s.scale !== null)
+  const blank = useTraceStore(selectIsBlank)
+  const [askBlank, setAskBlank] = useState(false)
   const t = useTraceStore.getState()
+  const steps = blank ? BLANK_STEPS : STEPS
   return (
     <div ref={ref} className="trace-screen" role="dialog" aria-modal="true" aria-label="평면도로 방 만들기" tabIndex={-1} onKeyDown={onKeyDown}>
       <header className="trace-head">
         <strong>평면도로 방 만들기</strong>
         <ol className="trace-steps">
-          {STEPS.map(([ss, label]) => (
+          {steps.map(([ss, label]) => (
             <li key={label} aria-current={ss.includes(step) ? 'step' : undefined}>
               {label}
             </li>
@@ -218,18 +305,25 @@ function Dialog({ stage }: { stage?: ReactNode }) {
           {stage ?? (image ? <img src={image.url} alt="평면도" /> : null)}
         </div>
         <aside className="trace-side">
-          <p>{GUIDE[step]}</p>
-          {(!image || step !== 'closed') && <Upload />}
+          <p>{(blank ? BLANK_GUIDE : GUIDE)[step]}</p>
+          {blank && step !== 'closed' && <BackgroundOption />}
+          {image && step !== 'closed' && <Upload />}
           {image && (
             <>
               {step !== 'closed' && <SuggestPanel />}
               {step !== 'closed' && <BaselineForm />}
+              {step !== 'closed' && (
+                <button type="button" onClick={() => setAskBlank(true)}>
+                  배경 없이 그리기
+                </button>
+              )}
               {!scaled && <p className="hint">축척을 설정하기 전에는 모서리를 찍을 수 없습니다.</p>}
               {error && (
                 <p role="alert" className="field-error">
                   {error.message}
                 </p>
               )}
+              {step === 'corners' && <DrawTools />}
               <div className="row">
                 <button type="button" disabled={count === 0 && step !== 'closed'} onClick={step === 'closed' ? t.reopenTrace : t.undoTracePoint}>
                   {step === 'closed' ? '다시 편집' : '되돌리기'}
@@ -243,8 +337,42 @@ function Dialog({ stage }: { stage?: ReactNode }) {
                   닫기
                 </button>
               </div>
+              {step === 'closed' && <DeleteTool />}
               {step === 'closed' && <Confirm />}
             </>
+          )}
+          {blank && (
+            <>
+              {error && (
+                <p role="alert" className="field-error">
+                  {error.message}
+                </p>
+              )}
+              {step === 'corners' && <DrawTools />}
+              <div className="row">
+                <button type="button" disabled={count === 0 && step !== 'closed'} onClick={step === 'closed' ? t.reopenTrace : t.undoTracePoint}>
+                  {step === 'closed' ? '다시 편집' : '마지막 점 되돌리기'}
+                </button>
+                <button type="button" disabled={!canClose} onClick={() => t.closeTrace()}>
+                  닫기
+                </button>
+              </div>
+              {step === 'closed' && <DeleteTool />}
+              {step === 'closed' && <Confirm />}
+            </>
+          )}
+          {askBlank && (
+            <ConfirmDialog
+              title="배경 없이 그리기"
+              confirmLabel="계속"
+              onConfirm={() => {
+                setAskBlank(false)
+                useTraceStore.getState().start()
+              }}
+              onCancel={() => setAskBlank(false)}
+            >
+              <p>배경 이미지와 찍은 점이 모두 지워지고 빈 캔버스로 돌아갑니다. 계속할까요?</p>
+            </ConfirmDialog>
           )}
           <div className="row end">
             <button type="button" onClick={t.cancel}>

@@ -5,6 +5,7 @@
 import { create } from 'zustand'
 import { isDragging } from '../scene/dragSession'
 import { snapStep } from '../scene/interaction'
+import { deletePoint, insertPoint } from '../trace/draw'
 import { editError, movePoint, relocateFixtures, setWallLength as wallLengthPoints } from '../trace/trace'
 import { lockDoc, unlockDoc } from './dragLock'
 import type { DocData, Item, Point2, Room } from './types'
@@ -29,6 +30,10 @@ interface EditState {
   cancelCornerDrag: () => void
   /** 벽 길이를 맞추도록 끝점 이동. Undo 1단계. 교차·범위 위반이면 원위치 + 토스트(AC-05-3) */
   setWallLength: (i: number, len: number) => boolean
+  /** 벽 i 위 (x, z) 근처에 꼭짓점 추가(AC-05-5). Undo 1단계, 고정 요소 재배치(AC-05-4). 실패 시 토스트 + false */
+  insertCorner: (wallIndex: number, x: number, z: number) => boolean
+  /** 꼭짓점 삭제(3개 미만 불가). Undo 1단계. 실패 시 토스트 + false */
+  deleteCorner: (i: number) => boolean
 }
 
 interface Session {
@@ -131,6 +136,22 @@ export const useEditStore = create<EditState>()((set, get) => ({
     const r = wallLengthPoints(room.points, i, len)
     const err = r.ok ? commitPoints(r.value) : r.error
     if (err) notice(err)
+    return err === null
+  },
+  insertCorner: (wallIndex, x, z) => {
+    if (isDragging() || session) return false
+    const r = insertPoint(useDocStore.getState().room.points, wallIndex, x, z, snapStep(useUiStore.getState().snapEnabled))
+    const err = r.ok ? commitPoints(r.value) : r.error
+    if (err) notice(err)
+    else set({ selectedCorner: wallIndex + 1, selectedWall: null })
+    return err === null
+  },
+  deleteCorner: (i) => {
+    if (isDragging() || session) return false
+    const r = deletePoint(useDocStore.getState().room.points, i)
+    const err = r.ok ? commitPoints(r.value) : r.error
+    if (err) notice(err)
+    else set({ selectedCorner: null, selectedWall: null })
     return err === null
   },
 }))

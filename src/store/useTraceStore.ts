@@ -1,8 +1,10 @@
 // 평면도 트레이싱(S-04) 상태. Undo/Redo 비대상, 저장 JSON에 넣지 않는다(AC-04-6).
 // 좌표계: 점은 이미지 픽셀로 저장하고, 화면(트레이싱 평면, cm)에서 들어온 좌표는 displayScale로 나눠 변환한다.
+// 빈 캔버스 모드: image=null, scale=1(1cm/px)로 시작해 기준선 단계를 건너뛴다. 이미지를 올리면(setImage) 기존 트레이싱으로 전환된다.
 // 이미지는 평면 (0,0)부터 가로 w*displayScale, 세로(=z) h*displayScale cm로 놓는다(trace/trace.ts imageRect).
 import { create } from 'zustand'
 import { snap, snapStep } from '../scene/interaction'
+import { BLANK_EXTENT, deletePoint, drawPoint, insertPoint, pointFromLength } from '../trace/draw'
 import { canClose, closePolygon, cmToPx, findIntersections, computeScale, IMAGE_MAX_PIXELS, pxToCm, TRACE_DEFAULT_HEIGHT, validateImage } from '../trace/trace'
 import { loadPixels } from '../trace/suggest/pixels'
 import { runSuggest, type SuggestHandle } from '../trace/suggest/run'
@@ -38,9 +40,28 @@ interface TraceState {
   suggest: 'idle' | 'running'
   /** 점선(미확정) 제안 점(이미지 px). Undo 비대상·저장 제외. applySuggestion 전에는 corners가 아니다(AC-19-5) */
   candidate: Point2[] | null
+  /** 직각 보정(수평·수직 고정). 기본 켜짐. 직전 점이 있을 때 addTracePoint가 적용한다 */
+  ortho: boolean
+  /** 마지막 포인터 위치(트레이싱 평면 cm). 미리보기·길이 입력의 방향. Undo 비대상 */
+  cursor: Point2 | null
+  /** 길이 입력 오류 문구 */
+  lengthError: string | null
+  /** 닫힌 뒤 선택한 점(corners 인덱스). [점 삭제] 대상. Undo 비대상 */
+  selected: number | null
 
   start: () => void
   cancel: () => void
+  setOrtho: (on: boolean) => void
+  clearLengthError: () => void
+  /** 포인터 위치 갱신(null이면 해제). 마지막 위치는 포인터가 캔버스를 벗어나도 남겨 둔다 */
+  setCursor: (x: number, z: number) => void
+  /** 직전 점에서 길이(cm)만큼 떨어진 곳에 점 추가. 방향은 dir(cm 위치) > cursor > 오른쪽. 직각이면 가까운 축. 실패 시 lengthError + false */
+  addTracePointByLength: (len: number, dir?: Point2) => boolean
+  /** 닫힌 뒤 벽 wallIndex(corners[i]->corners[i+1]) 위에 점 추가. 닫힌 상태가 유지되고 pendingRoom을 다시 계산. 실패 시 error + false */
+  insertTracePoint: (wallIndex: number, x: number, z: number) => boolean
+  /** 닫힌 뒤 점 삭제(3점 미만 불가). 실패 시 error + false */
+  deleteTracePoint: (i: number) => boolean
+  selectTracePoint: (i: number | null) => void
   /** File 검증 후 objectURL 생성·크기 읽기. 실패면 토스트 + false, 상태 유지(AC-04-1) */
   loadImageFile: (file: File) => Promise<boolean>
   /** 검증·디코딩이 끝난 이미지 등록(테스트·loadImageFile 공용). 이전 URL은 revoke */
@@ -82,7 +103,14 @@ const initial = {
   baselineError: null,
   suggest: 'idle' as const,
   candidate: null,
+  ortho: true,
+  cursor: null as Point2 | null,
+  lengthError: null as string | null,
+  selected: null as number | null,
 }
+
+/** 빈 캔버스 시작 상태: 축척 1(cm=cm)로 확정 */
+const blankState = { ...initial, active: true, scale: 1 }
 
 const revoke = (img: TraceImage | null) => {
   if (img) URL.revokeObjectURL(img.url)
@@ -92,8 +120,16 @@ const revoke = (img: TraceImage | null) => {
 export const displayScale = (s: Pick<TraceState, 'scale'>) => s.scale ?? 1
 
 export function traceStep(s: Pick<TraceState, 'image' | 'scale' | 'closed'>): TraceStep {
-  return !s.image ? 'upload' : s.closed ? 'closed' : s.scale === null ? 'baseline' : 'corners'
+  if (s.closed) return 'closed'
+  if (s.scale !== null) return 'corners'
+  return s.image ? 'baseline' : 'upload'
 }
+
+/** 빈 캔버스(이미지 없이 그리는 중)인가 */
+export const selectIsBlank = (s: Pick<TraceState, 'image' | 'scale'>) => s.image === null && s.scale !== null
+
+const EPS = 1e-6
+export const clampBlank = (v: number) => Math.min(Math.max(v, 0), BLANK_EXTENT)
 
 const decode = (url: string) =>
   new Promise<{ width: number; height: number }>((resolve, reject) => {
@@ -126,7 +162,7 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     loadSeq++
     abortSuggest()
     revoke(get().image)
-    set({ ...initial, active: true })
+    set({ ...blankState })
   },
   cancel: () => {
     loadSeq++
@@ -168,7 +204,7 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     const prev = get().image
     if (prev && prev.url !== img.url) revoke(prev)
     // 새 이미지는 축척·점이 무의미하므로 처음부터 다시 시작한다.
-    set({ ...initial, active: true, image: img })
+    set({ ...initial, active: true, image: img, ortho: get().ortho })
   },
   setBaselinePoint: (i, x, z) => {
     const s = get()
@@ -196,26 +232,73 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     const s = get()
     if (s.scale === null || s.closed || !Number.isFinite(x) || !Number.isFinite(z)) return false
     const step = snapStep(useUiStore.getState().snapEnabled)
-    set({ corners: [...s.corners, cmToPx([snap(x, step), snap(z, step)], s.scale)], error: null })
+    const last = s.corners[s.corners.length - 1]
+    const prev = last ? pxToCm(last, s.scale) : null
+    let p = drawPoint(prev, [x, z], s.ortho, step) // 직각 보정 -> 스냅 순서(trace/draw.ts)
+    if (selectIsBlank(s)) p = [clampBlank(p[0]), clampBlank(p[1])]
+    if (prev && Math.abs(p[0] - prev[0]) < EPS && Math.abs(p[1] - prev[1]) < EPS) {
+      set({ error: { message: '직전 점과 같은 위치입니다. 다른 곳을 눌러 주세요', crossings: [] } }) // 길이 0 선분
+      return false
+    }
+    set({ corners: [...s.corners, cmToPx(p, s.scale)], error: null, lengthError: null })
     return true
+  },
+  setOrtho: (ortho) => set({ ortho, lengthError: null }),
+  clearLengthError: () => set({ lengthError: null }),
+  selectTracePoint: (i) => set({ selected: i !== null && get().corners[i] ? i : null }),
+  setCursor: (x, z) => {
+    if (Number.isFinite(x) && Number.isFinite(z)) set({ cursor: [x, z] })
+  },
+  addTracePointByLength: (len, dir) => {
+    const s = get()
+    const fail = (m: string) => (set({ lengthError: m }), false)
+    if (s.scale === null || s.closed) return false
+    const last = s.corners[s.corners.length - 1]
+    if (!last) return fail('먼저 시작점을 클릭하세요')
+    const prev = pxToCm(last, s.scale)
+    const r = pointFromLength(prev, dir ?? s.cursor ?? [prev[0] + 1, prev[1]], len, s.ortho)
+    if (!r.ok) return fail(r.error)
+    const p = r.value
+    if (selectIsBlank(s) && p.some((v) => v < 0 || v > BLANK_EXTENT)) return fail(`그림 영역(0~${BLANK_EXTENT}cm)을 벗어납니다. 방향을 바꿔 보세요`)
+    set({ corners: [...s.corners, cmToPx(p, s.scale)], error: null, lengthError: null })
+    return true
+  },
+  insertTracePoint: (wallIndex, x, z) => {
+    const s = get()
+    if (!s.closed || s.scale === null) return false
+    const r = insertPoint(cornersCm(s), wallIndex, x, z, snapStep(useUiStore.getState().snapEnabled))
+    if (!r.ok) return (set({ error: { message: r.error, crossings: [] } }), false)
+    return reclose(r.value)
+  },
+  deleteTracePoint: (i) => {
+    const s = get()
+    if (!s.closed || s.scale === null) return false
+    const r = deletePoint(cornersCm(s), i)
+    if (!r.ok) return (set({ error: { message: r.error, crossings: [] } }), false)
+    return reclose(r.value)
   },
   moveTracePoint: (i, x, z) => {
     const s = get()
     if (s.scale === null || !s.corners[i] || !Number.isFinite(x) || !Number.isFinite(z)) return
     const step = snapStep(useUiStore.getState().snapEnabled)
+    const q: Point2 = selectIsBlank(s) ? [clampBlank(snap(x, step)), clampBlank(snap(z, step))] : [snap(x, step), snap(z, step)]
     set({
-      corners: s.corners.map((p, k) => (k === i ? cmToPx([snap(x, step), snap(z, step)], s.scale!) : p)),
+      corners: s.corners.map((p, k) => (k === i ? cmToPx(q, s.scale!) : p)),
       closed: false,
       pendingRoom: null,
       error: null,
+      selected: null,
     })
   },
   undoTracePoint: () => {
     const s = get()
-    set({ corners: s.corners.slice(0, -1), closed: false, pendingRoom: null, error: null })
+    set({ corners: s.corners.slice(0, -1), closed: false, pendingRoom: null, error: null, selected: null, lengthError: null })
   },
-  reopenTrace: () => set({ closed: false, pendingRoom: null, error: null }),
-  redoBaseline: () => set({ baseline: [], scale: null, baselineError: null, closed: false, pendingRoom: null, error: null }),
+  reopenTrace: () => set({ closed: false, pendingRoom: null, error: null, selected: null }),
+  redoBaseline: () => {
+    if (!get().image) return // 빈 캔버스는 기준선이 없다
+    set({ baseline: [], scale: null, baselineError: null, closed: false, pendingRoom: null, error: null })
+  },
   requestSuggest: async () => {
     const s = get()
     if (!s.image || s.suggest === 'running') return
@@ -281,6 +364,26 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     return true
   },
 }))
+
+/** 점 목록(cm)을 닫힌 상태로 다시 확정한다. 닫기 검증에 실패하면 이전 점으로 되돌리고 false */
+function reclose(cm: Point2[]): boolean {
+  const s = useTraceStore.getState()
+  const prev = { corners: s.corners, pendingRoom: s.pendingRoom }
+  useTraceStore.setState({ corners: cm.map((p) => cmToPx(p, s.scale!)), selected: null })
+  if (useTraceStore.getState().closeTrace()) return true
+  useTraceStore.setState({ ...prev, closed: true, selected: s.selected })
+  return false
+}
+
+/** 다음 점 미리보기(cm): 직각 보정·스냅 적용 후 위치와 직전 점부터의 길이. 점이 없거나 커서가 없으면 null. 훅 셀렉터로 직접 쓰지 말고 useMemo로 감싼다 */
+export function previewPoint(s: Pick<TraceState, 'image' | 'corners' | 'scale' | 'cursor' | 'ortho' | 'closed'>): { point: Point2; length: number } | null {
+  if (s.closed || s.scale === null || !s.cursor || s.corners.length === 0) return null
+  const prev = pxToCm(s.corners[s.corners.length - 1], s.scale)
+  const step = snapStep(useUiStore.getState().snapEnabled)
+  let point = drawPoint(prev, s.cursor, s.ortho, step)
+  if (selectIsBlank(s)) point = [clampBlank(point[0]), clampBlank(point[1])] // addTracePoint와 같은 가장자리 맞춤
+  return { point, length: Math.hypot(point[0] - prev[0], point[1] - prev[1]) }
+}
 
 /** 닫기 활성 조건(AC-04-3) */
 export const selectCanClose = (s: Pick<TraceState, 'corners' | 'scale' | 'closed'>) =>

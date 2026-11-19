@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react'
-
-const FOCUSABLE = 'button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
+import { FOCUSABLE, modalKeyDown } from './modalKeys'
 
 interface Props {
   title: string
@@ -21,22 +20,7 @@ export default function Modal({ title, onClose, children }: Props) {
     return () => (prev?.isConnected ? prev : document.querySelector<HTMLElement>('[data-modal-fallback]'))?.focus()
   }, [])
 
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    e.nativeEvent.stopPropagation() // 모달 중에는 Ctrl+Z·Delete 등 에디터 단축키가 문서를 바꾸지 않게
-    if (e.key === 'Escape') return onClose()
-    if (e.key !== 'Tab' || !ref.current) return
-    const els = [...ref.current.querySelectorAll<HTMLElement>(FOCUSABLE)]
-    if (!els.length) return
-    const first = els[0]
-    const last = els[els.length - 1]
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault()
-      last.focus()
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault()
-      first.focus()
-    }
-  }
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => modalKeyDown(e, ref.current, onClose)
 
   return (
     <div
