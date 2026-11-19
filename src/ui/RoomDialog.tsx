@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { RoomInputErrors } from '../io/validate'
-import { useDocStore } from '../store/useDocStore'
+import { selectRoom, useDocStore } from '../store/useDocStore'
 import { useTraceStore } from '../store/useTraceStore'
 import { useUiStore } from '../store/useUiStore'
 import Modal from './Modal'
@@ -15,7 +15,7 @@ type NumKey = 'width' | 'depth' | 'height' | 'cutWidth' | 'cutDepth'
 export default function RoomDialog({ onClose }: { onClose: () => void }) {
   const items = useDocStore((s) => s.items)
   const hasItems = items.length > 0
-  const [form, setForm] = useState<RoomForm>(() => initialRoomForm(useDocStore.getState().room))
+  const [form, setForm] = useState<RoomForm>(() => initialRoomForm(selectRoom(useDocStore.getState())))
   const errors: RoomInputErrors = roomFormErrors(form)
   const staleNotches = notchesError(form)
   const invalid = Object.keys(errors).length > 0 || staleNotches !== null

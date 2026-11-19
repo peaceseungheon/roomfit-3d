@@ -14,8 +14,8 @@ import ConfirmDialog from './ConfirmDialog'
 type Dlg = { kind: 'error'; lines: string[] } | { kind: 'import'; doc: DocData } | { kind: 'reset' }
 
 function exportJson() {
-  const { room, items } = useDocStore.getState()
-  downloadBlob(new Blob([serializeDocument({ room, items })], { type: 'application/json' }), stampedName('json'))
+  const { rooms, items } = useDocStore.getState()
+  downloadBlob(new Blob([serializeDocument({ rooms, items })], { type: 'application/json' }), stampedName('json'))
 }
 
 /** AC-15-1: 현재 3D 캔버스를 PNG로 저장. HTML 오버레이는 포함되지 않는다. */

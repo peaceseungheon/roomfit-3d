@@ -1,11 +1,11 @@
 import { useId, useState } from 'react'
-import { useDocStore } from '../store/useDocStore'
+import { selectRoom, useDocStore } from '../store/useDocStore'
 import { useEditStore } from '../store/useEditStore'
 
 function LengthForm({ wall, cur }: { wall: number; cur: number }) {
   const id = useId()
   const addMid = () => {
-    const pts = useDocStore.getState().room.points
+    const pts = selectRoom(useDocStore.getState()).points
     const a = pts[wall]
     const b = pts[(wall + 1) % pts.length]
     if (a && b) useEditStore.getState().insertCorner(wall, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2) // AC-05-5
@@ -49,7 +49,7 @@ function CornerForm({ i, count }: { i: number; count: number }) {
 export default function WallEditor() {
   const wall = useEditStore((s) => s.selectedWall)
   const corner = useEditStore((s) => s.selectedCorner)
-  const points = useDocStore((s) => s.room.points)
+  const points = useDocStore((s) => selectRoom(s).points)
   if (corner !== null && points[corner]) return <CornerForm i={corner} count={points.length} />
   if (wall === null) return null
   const a = points[wall]

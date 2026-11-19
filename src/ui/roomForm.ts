@@ -3,7 +3,7 @@ import { validateRoomInput, type RoomInput, type RoomInputErrors } from '../io/v
 import { isDragging } from '../scene/dragSession'
 import { computeWarnings } from '../scene/collision'
 import { lPoints, rectPoints, shiftItems, useDocStore } from '../store/useDocStore'
-import type { Item, Point2, Room } from '../store/types'
+import type { Item, Point2, Room, RoomShape } from '../store/types'
 import { applyNotches, applyNotchesShifted, type NotchSpec } from './roomNotch'
 
 export interface RoomForm {
@@ -67,7 +67,7 @@ export function submitRoomForm(f: RoomForm): boolean {
 }
 
 /** 폼 입력이 유효하면 확정 시 만들어질 방 윤곽. 유효하지 않으면 null(미리보기·방 밖 개수 안내용). */
-export function formRoom(f: RoomForm): Room | null {
+export function formRoom(f: RoomForm): RoomShape | null {
   const base = presetPoints(f)
   if (!base) return null
   const pts = applyNotches(base, f.notches ?? [])
@@ -100,6 +100,6 @@ export function notchesError(f: RoomForm): string | null {
 }
 
 /** 새 방에서 방 밖(벽 간섭, AC-11-5)이 되는 가구 개수. 고정 요소는 세지 않는다. */
-export function countOutsideFurniture(room: Room, items: Item[]): number {
+export function countOutsideFurniture(room: RoomShape, items: Item[]): number {
   return computeWarnings(room, items.filter((it) => it.type === 'FURNITURE')).filter((w) => w.kind === 'WALL').length
 }

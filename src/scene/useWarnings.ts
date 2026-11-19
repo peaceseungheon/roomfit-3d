@@ -1,4 +1,4 @@
-import { useDocStore } from '../store/useDocStore'
+import { selectRoom, useDocStore } from '../store/useDocStore'
 import type { Item, Room } from '../store/types'
 import { computeWarnings, type Warning } from './collision'
 
@@ -12,7 +12,7 @@ export function selectWarnings(room: Room, items: Item[]): Warning[] {
 
 /** 현재 문서의 간섭 경고. 드래그 중에도 items가 바뀔 때마다 갱신된다. */
 export function useWarnings(): Warning[] {
-  const room = useDocStore((s) => s.room)
+  const room = useDocStore(selectRoom)
   const items = useDocStore((s) => s.items)
   return selectWarnings(room, items)
 }

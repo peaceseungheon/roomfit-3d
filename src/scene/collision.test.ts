@@ -5,8 +5,8 @@ import { computeWarnings, doorSwing, furnitureBox, swingBox, warnedIds } from '.
 import { selectWarnings } from './useWarnings'
 import { relocateFixtures } from '../trace/trace'
 
-const room: Room = { height: 230, points: [[0, 0], [400, 0], [400, 300], [0, 300]] }
-const lshape: Room = { height: 230, points: [[0, 0], [400, 0], [400, 150], [200, 150], [200, 300], [0, 300]] }
+const room: Room = { id: 'r1', name: '방 1', height: 230, points: [[0, 0], [400, 0], [400, 300], [0, 300]] }
+const lshape: Room = { id: 'r1', name: '방 1', height: 230, points: [[0, 0], [400, 0], [400, 150], [200, 150], [200, 300], [0, 300]] }
 
 const box = (id: string, x: number, z: number, w = 100, d = 50, ry = 0): Item => ({
   id, type: 'FURNITURE', modelType: 'DESK', position: [x, 0, z], rotation: [0, ry, 0], size: [w, 75, d],
@@ -99,7 +99,7 @@ describe('경고 공유', () => {
     expect([...warnedIds(computeWarnings(room, [box('a', 100, 100), box('b', 150, 100)]))]).toEqual(['a', 'b'])
   })
   it('같은 room·items면 캐시 재사용', () => {
-    const { room: r, items } = createSample()
+    const { rooms: [r], items } = createSample()
     expect(selectWarnings(r, items)).toBe(selectWarnings(r, items))
   })
   it('가구 50개 계산이 빠르다', () => {
@@ -112,7 +112,7 @@ describe('경고 공유', () => {
 
 describe('고정 요소 자리 없음(AC-05-4)', () => {
   it('가장 가까운 벽보다 폭이 크면 NO_SPACE', () => {
-    const tiny: Room = { height: 230, points: [[0, 0], [60, 0], [60, 300], [0, 300]] }
+    const tiny: Room = { id: 'r1', name: '방 1', height: 230, points: [[0, 0], [60, 0], [60, 300], [0, 300]] }
     expect(kinds(tiny, [door('d', 30, 0)])).toContain('d:NO_SPACE:')
   })
   it('들어가면 경고 없음', () => {
@@ -121,7 +121,7 @@ describe('고정 요소 자리 없음(AC-05-4)', () => {
 })
 
 describe('NO_SPACE 허용오차', () => {
-  const mk = (len: number): Room => ({ height: 230, points: [[0, 0], [len, 0], [len, 300], [0, 300]] })
+  const mk = (len: number): Room => ({ id: 'r1', name: '방 1', height: 230, points: [[0, 0], [len, 0], [len, 300], [0, 300]] })
   const fx = (w: number, x: number): Item => ({ id: 'w', type: 'FIXTURE', modelType: 'WINDOW', position: [x, 0, 0], rotation: [0, 0, 0], size: [w, 100, 5] })
   it('폭==벽 길이면 NO_SPACE 없음', () => {
     expect(computeWarnings(mk(300), [fx(300, 150)]).some((w) => w.kind === 'NO_SPACE')).toBe(false)

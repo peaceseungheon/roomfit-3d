@@ -17,7 +17,7 @@ export function formatImportErrors(errors: ValidationError[]): string[] {
 export function processImportText(text: string): ImportOutcome {
   const r = parseDocument(text)
   return r.ok
-    ? { ok: true, doc: { room: r.value.room, items: r.value.items } }
+    ? { ok: true, doc: { rooms: r.value.rooms, items: r.value.items } }
     : { ok: false, lines: formatImportErrors(r.errors) }
 }
 

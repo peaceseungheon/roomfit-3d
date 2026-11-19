@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createSample } from '../store/sample'
-import { useDocStore } from '../store/useDocStore'
+import { selectRoom, useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { Item } from '../store/types'
 import { deleteSelected } from './actions'
@@ -23,7 +23,7 @@ beforeEach(() => {
 
 describe('elevation 상한', () => {
   it('addItem/updateItem은 0~천장고로 clamp', () => {
-    const h = useDocStore.getState().room.height
+    const h = selectRoom(useDocStore.getState()).height
     useDocStore.getState().addItem(item('e1', { elevation: h + 50 }))
     expect(useDocStore.getState().items.find((i) => i.id === 'e1')?.elevation).toBe(h)
     useDocStore.getState().updateItem('e1', { elevation: -5 })
@@ -35,7 +35,7 @@ describe('elevation 상한', () => {
     useDocStore.getState().createRectRoom(400, 300, 250, true)
     expect(useDocStore.getState().items.find((i) => i.id === 'e1')?.elevation).toBe(250)
     useDocStore.getState().addItem(item('e2', { elevation: 240 }))
-    const { room } = useDocStore.getState()
+    const room = selectRoom(useDocStore.getState())
     useDocStore.getState().setRoom({ ...room, height: 200 })
     expect(useDocStore.getState().items.find((i) => i.id === 'e2')?.elevation).toBe(200)
   })

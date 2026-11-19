@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useDocStore } from './useDocStore'
+import { selectRoom, useDocStore } from './useDocStore'
 import { useUiStore } from './useUiStore'
 import { createSample } from './sample'
 import { CORRUPT_BACKUP_KEY, restoreSaved, serializeDocument, startAutoSave, STORAGE_KEY } from '../io/persist'
@@ -23,7 +23,7 @@ beforeEach(() => {
 describe('useDocStore', () => {
   it('ㄱ자는 우상단이 잘린다', () => {
     useDocStore.getState().createLRoom(400, 300, 230, 100, 80)
-    expect(useDocStore.getState().room.points).toEqual([
+    expect(selectRoom(useDocStore.getState()).points).toEqual([
       [0, 0], [300, 0], [300, 80], [400, 80], [400, 300], [0, 300],
     ])
   })
@@ -123,10 +123,10 @@ describe('규약 강제와 거부', () => {
     expect(useDocStore.getState().pristine).toBe(true)
   })
   it('방 입력 범위 밖이면 상태 유지', () => {
-    const before = useDocStore.getState().room
+    const before = selectRoom(useDocStore.getState())
     expect(useDocStore.getState().createRectRoom(5000, 300, 230)).toBe(false)
     expect(useDocStore.getState().createLRoom(400, 300, 230, 400, 80)).toBe(false)
-    expect(useDocStore.getState().room).toBe(before)
+    expect(selectRoom(useDocStore.getState())).toBe(before)
     expect(undoCount()).toBe(0)
   })
   it('keepItems=false면 가구를 비운다', () => {
@@ -135,7 +135,7 @@ describe('규약 강제와 거부', () => {
   })
   it('loadDocument/resetToSample 후 Undo 가능', () => {
     const orig = useDocStore.getState().items
-    useDocStore.getState().loadDocument({ room: createSample().room, items: [] })
+    useDocStore.getState().loadDocument({ rooms: createSample().rooms, items: [] })
     expect(useDocStore.getState().items).toEqual([])
     useDocStore.temporal.getState().undo()
     expect(useDocStore.getState().items).toBe(orig)
@@ -143,6 +143,35 @@ describe('규약 강제와 거부', () => {
     useDocStore.getState().resetToSample()
     useDocStore.temporal.getState().undo()
     expect(useDocStore.getState().items.some((i) => i.id === 'item_001')).toBe(false)
+  })
+})
+
+describe('rooms 배열 모델', () => {
+  const sq = (x: number): [number, number][] => [[x, 0], [x + 300, 0], [x + 300, 300], [x, 300]]
+  it('초기 상태는 방 1개(r1)', () => {
+    expect(useDocStore.getState().rooms).toHaveLength(1)
+    expect(useDocStore.getState().rooms[0].id).toBe('r1')
+  })
+  it('createRectRoom은 rooms[0]의 id·name을 유지하고 points·height만 바꾼다', () => {
+    const before = useDocStore.getState().rooms[0]
+    expect(useDocStore.getState().createRectRoom(500, 400, 240)).toBe(true)
+    const after = useDocStore.getState().rooms[0]
+    expect(after).toEqual({ id: before.id, name: before.name, height: 240, points: [[0, 0], [500, 0], [500, 400], [0, 400]] })
+  })
+  it('loadDocument 후 undo하면 이전 rooms 참조로 복귀', () => {
+    const prev = useDocStore.getState().rooms
+    const A = { id: 'a', name: '방 1', height: 230, points: sq(0) }
+    const B = { id: 'b', name: '방 2', height: 230, points: sq(300) }
+    useDocStore.getState().loadDocument({ rooms: [A, B], items: [] })
+    expect(useDocStore.getState().rooms).toEqual([A, B])
+    useDocStore.temporal.getState().undo()
+    expect(useDocStore.getState().rooms).toBe(prev)
+  })
+  it('addItem의 천장고 clamp 기준은 rooms[0].height', () => {
+    const r0 = useDocStore.getState().rooms[0]
+    useDocStore.setState({ rooms: [{ ...r0, height: 200 }] })
+    useDocStore.getState().addItem({ ...item('hi'), elevation: 300 })
+    expect(useDocStore.getState().items.find((i) => i.id === 'hi')!.elevation).toBe(200)
   })
 })
 

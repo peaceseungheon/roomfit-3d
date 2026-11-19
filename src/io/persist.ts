@@ -9,8 +9,8 @@ export const SAVE_DEBOUNCE_MS = 1000
 
 export const serializeDocument = (doc: DocData, now: Date = new Date()): string => {
   const out: DocumentJson = {
-    projectInfo: { version: '1.0', lastModified: now.toISOString() },
-    room: doc.room,
+    projectInfo: { version: '1.1', lastModified: now.toISOString() },
+    rooms: doc.rooms,
     items: doc.items,
   }
   return JSON.stringify(out, null, 2)
@@ -47,7 +47,7 @@ export function restoreSaved(
     useUiStore.getState().setRestoreFailure({ errors: r.errors, backedUp })
     return false
   }
-  useDocStore.getState().loadDocument({ room: r.value.room, items: r.value.items })
+  useDocStore.getState().loadDocument({ rooms: r.value.rooms, items: r.value.items })
   useDocStore.temporal.getState().clear()
   return true
 }
@@ -61,9 +61,9 @@ export function startAutoSave(
   let pending = false
   const save = () => {
     pending = false
-    const { room, items } = useDocStore.getState()
+    const { rooms, items } = useDocStore.getState()
     try {
-      ;(storage ??= localStorage).setItem(STORAGE_KEY, serializeDocument({ room, items }))
+      ;(storage ??= localStorage).setItem(STORAGE_KEY, serializeDocument({ rooms, items }))
       useUiStore.getState().setSaveStatus('saved')
     } catch {
       useUiStore.getState().setSaveStatus('failed') // AC-14-5
@@ -76,7 +76,7 @@ export function startAutoSave(
   }
   const unsub = useDocStore.subscribe((s, prev) => {
     if (s.pristine) return // AC-02-2
-    if (s.room === prev.room && s.items === prev.items) return
+    if (s.rooms === prev.rooms && s.items === prev.items) return
     clearTimeout(timer)
     pending = true
     timer = setTimeout(save, delayMs)

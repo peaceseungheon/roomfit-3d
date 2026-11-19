@@ -4,6 +4,12 @@ import { serializeDocument } from './persist'
 import { createSample } from '../store/sample'
 
 const valid = () => JSON.parse(serializeDocument(createSample()))
+/** 1.0 저장본(room 1개) */
+const valid10 = () => {
+  const { rooms, ...rest } = valid()
+  const { height, points } = rooms[0]
+  return { ...rest, projectInfo: { ...rest.projectInfo, version: '1.0' }, room: { height, points } }
+}
 const paths = (v: unknown) => {
   const r = validateDocument(v)
   return r.ok ? [] : r.errors.map((e) => e.path)
@@ -19,13 +25,13 @@ describe('validateDocument', () => {
     expect(paths(d)).toContain('projectInfo.version')
   })
   it('필수 필드 누락', () => {
-    const d = valid()
+    const d = valid10()
     delete d.room
     delete d.items[0].size
     expect(paths(d)).toEqual(expect.arrayContaining(['room', 'items[0].size']))
   })
   it('범위 밖: 방 3000 초과, 가구 크기 초과', () => {
-    const d = valid()
+    const d = valid10()
     d.room.points[1][0] = 3001
     d.items[1].size = [1001, 501, 0]
     expect(paths(d)).toEqual(
@@ -70,8 +76,8 @@ describe('elevation', () => {
 })
 
 describe('4-2 QA 보강 검증', () => {
-  const mut = (f: (d: any) => void) => {
-    const d = valid()
+  const mut = (f: (d: any) => void, base = valid) => {
+    const d = base()
     f(d)
     return paths(d)
   }
@@ -91,9 +97,9 @@ describe('4-2 QA 보강 검증', () => {
   })
   it('room.points 개수 상한', () => {
     const many = (n: number) => (d: any) => (d.room.points = Array.from({ length: n }, (_, i) => [i % 2, (i >> 1) % 2]))
-    expect(mut(many(100))).not.toContain('room.points')
-    expect(mut(many(101))).toContain('room.points')
-    expect(mut((d) => (d.room.points = [[0, 0], [1, 1]]))).toContain('room.points')
+    expect(mut(many(100), valid10)).not.toContain('room.points')
+    expect(mut(many(101), valid10)).toContain('room.points')
+    expect(mut((d) => (d.room.points = [[0, 0], [1, 1]]), valid10)).toContain('room.points')
   })
   it('카탈로그 색은 모두 형식 통과', async () => {
     const { CATALOG } = await import('../store/catalog')
@@ -108,5 +114,84 @@ describe('치수 박스 저장→불러오기 왕복', () => {
     const r = parseDocument(serializeDocument({ ...doc, items: [...doc.items, box] }))
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.value.items.find((i) => i.id === 'box-1')).toMatchObject({ modelType: 'DIMENSION_BOX', name: '새 소파', color: '#12ab34', size: [180, 80, 90] })
+  })
+})
+
+describe('다중 방 문서(1.0/1.1)', () => {
+  type P = [number, number]
+  const sq = (x: number, z: number, w = 300, d = 300): P[] => [[x, z], [x + w, z], [x + w, z + d], [x, z + d]]
+  const room = (id: string, points: P[], height = 230) => ({ id, name: `방 ${id}`, height, points })
+  const doc11 = (rooms: unknown[], items: unknown[] = []) => ({
+    projectInfo: { version: '1.1', lastModified: '2026-11-19T00:00:00.000Z' },
+    rooms,
+    items,
+  })
+  const elevItem = (elevation: number) => ({ ...createSample().items[0], elevation })
+
+  it('1.0 문서는 rooms 1개(r1, 방 1)로 정규화된다', () => {
+    const s = createSample()
+    const input = {
+      projectInfo: { version: '1.0', lastModified: '2026-11-19T00:00:00.000Z' },
+      room: { height: 230, points: sq(0, 0) },
+      items: s.items,
+    }
+    const r = validateDocument(input)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.rooms).toHaveLength(1)
+    expect(r.value.rooms[0]).toEqual({ id: 'r1', name: '방 1', height: 230, points: sq(0, 0) })
+    expect(r.value.items).toEqual(s.items)
+  })
+  it('1.1 방 2개가 변을 맞대면 통과', () => {
+    expect(paths(doc11([room('a', sq(0, 0)), room('b', sq(300, 0))]))).toEqual([])
+  })
+  it('한 점만 닿아도 통과', () => {
+    expect(paths(doc11([room('a', sq(0, 0)), room('b', sq(300, 300))]))).toEqual([])
+  })
+  it('방 개수는 1~20개', () => {
+    expect(paths(doc11([]))).toContain('rooms')
+    const many = Array.from({ length: 21 }, (_, i) => room(`r${i}`, sq(i * 100, 0, 100, 100)))
+    expect(paths(doc11(many))).toContain('rooms')
+    expect(paths(doc11(many.slice(0, 20)))).toEqual([])
+    expect(paths({ ...doc11([]), rooms: 'x' })).toContain('rooms')
+  })
+  it('방 id 중복 거부', () => {
+    expect(paths(doc11([room('a', sq(0, 0)), room('a', sq(300, 0))]))).toContain('rooms[1].id')
+  })
+  it('방 이름 1~100자', () => {
+    expect(paths(doc11([{ ...room('a', sq(0, 0)), name: '' }]))).toContain('rooms[0].name')
+    expect(paths(doc11([room('a', sq(0, 0)), { ...room('b', sq(300, 0)), name: 'a'.repeat(101) }]))).toContain('rooms[1].name')
+    expect(paths(doc11([{ ...room('a', sq(0, 0)), name: 'a'.repeat(100) }]))).toEqual([])
+  })
+  it('방 개별 규칙은 rooms[i] 경로로 보고', () => {
+    expect(paths(doc11([room('a', sq(0, 0)), room('b', sq(300, 0, 3001, 100))]))).toContain('rooms[1].points')
+    expect(paths(doc11([room('a', sq(0, 0), 100)]))).toContain('rooms[0].height')
+    const many = Array.from({ length: 101 }, (_, i): P => [i % 2, (i >> 1) % 2])
+    expect(paths(doc11([room('a', many)]))).toContain('rooms[0].points')
+  })
+  it('내부 면적이 겹치면 rooms[j] 오류', () => {
+    expect(paths(doc11([room('a', sq(0, 0)), room('b', sq(0, 0))]))).toContain('rooms[1]')
+    expect(paths(doc11([room('a', sq(0, 0)), room('b', sq(100, 100, 50, 50))]))).toContain('rooms[1]')
+  })
+  it('문서 전체 바운딩 박스 10000 초과 거부', () => {
+    expect(paths(doc11([room('a', sq(0, 0, 3000, 100)), room('b', sq(7001, 0, 3000, 100))]))).toContain('rooms')
+    expect(paths(doc11([room('a', sq(0, 0, 3000, 100)), room('b', sq(7000, 0, 3000, 100))]))).toEqual([])
+  })
+  it('먼 방의 가구 위치는 허용', () => {
+    const it0 = { ...createSample().items[1], position: [7500, 0, 50] }
+    expect(paths(doc11([room('a', sq(0, 0, 3000, 100)), room('b', sq(7000, 0, 3000, 100))], [it0]))).toEqual([])
+  })
+  it('elevation은 가장 낮은 천장고 기준', () => {
+    const rooms = [room('a', sq(0, 0), 230), room('b', sq(300, 0), 200)]
+    expect(paths(doc11(rooms, [elevItem(200)]))).toEqual([])
+    expect(paths(doc11(rooms, [elevItem(210)]))).toContain('items[0].elevation')
+  })
+  it('1.1의 room 키는 무시, 1.0에 room이 없으면 오류, 모르는 버전은 거부', () => {
+    const d = { ...doc11([room('a', sq(0, 0))]), room: 'garbage' }
+    const r = validateDocument(d)
+    expect(r.ok).toBe(true)
+    if (r.ok) expect('room' in r.value).toBe(false)
+    expect(paths({ projectInfo: { version: '1.0', lastModified: 'x' }, items: [] })).toContain('room')
+    expect(paths({ ...doc11([room('a', sq(0, 0))]), projectInfo: { version: '0.9', lastModified: 'x' } })).toContain('projectInfo.version')
   })
 })

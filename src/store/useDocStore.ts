@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { temporal } from 'zundo'
 import { createSample } from './sample'
 import { ITEM_MAX_H, ITEM_MAX_WD, validateRoom, validateRoomInput } from '../io/validate'
-import type { DocData, Item, Room } from './types'
+import type { DocData, Item, Room, RoomShape } from './types'
 
 export const UNDO_LIMIT = 50
 
@@ -62,6 +62,15 @@ export const shiftItems = (items: Item[], shift?: [number, number]): Item[] =>
     ? items
     : items.map((it) => ({ ...it, position: [it.position[0] + shift[0], it.position[1], it.position[2] + shift[1]] }))
 
+/** 3단계에서 활성 방으로 교체. 지금은 첫 방만 본다. */
+export const selectRoom = (s: DocData): Room => s.rooms[0]
+
+/** 첫 방의 height·points만 바꾼 새 rooms 배열(id·name 유지). */
+export const withFirstRoom = (rooms: Room[], { height, points }: RoomShape): Room[] => [
+  { ...rooms[0], height, points },
+  ...rooms.slice(1),
+]
+
 const clamp = (v: number, hi: number) => Math.min(Math.max(v, 1), hi)
 
 /** 규약 강제: y=0, 크기 clamp(W,D 1~1000 / H 1~500). 유한수가 아니면 null. */
@@ -86,11 +95,11 @@ export const useDocStore = create<DocState>()(
         ...sample,
         pristine: true,
         setRoom: (room) =>
-          set((s) => ({ room, items: clampElevations(s.items, room.height), pristine: false })),
+          set((s) => ({ rooms: withFirstRoom(s.rooms, room), items: clampElevations(s.items, room.height), pristine: false })),
         createRectRoom: (w, d, height, keepItems = true) => {
           if (Object.keys(validateRoomInput({ kind: 'rect', width: w, depth: d, height })).length) return false
           set((s) => ({
-            room: { height, points: rectPoints(w, d) },
+            rooms: withFirstRoom(s.rooms, { height, points: rectPoints(w, d) }),
             items: keepItems ? clampElevations(s.items, height) : [],
             pristine: false,
           }))
@@ -100,7 +109,7 @@ export const useDocStore = create<DocState>()(
           const input = { kind: 'L' as const, width: w, depth: d, height, cutWidth: cw, cutDepth: cd }
           if (Object.keys(validateRoomInput(input)).length) return false
           set((s) => ({
-            room: { height, points: lPoints(w, d, cw, cd) },
+            rooms: withFirstRoom(s.rooms, { height, points: lPoints(w, d, cw, cd) }),
             items: keepItems ? clampElevations(s.items, height) : [],
             pristine: false,
           }))
@@ -110,14 +119,14 @@ export const useDocStore = create<DocState>()(
           const room = { height, points }
           if (validateRoom(room).length) return false
           set((s) => ({
-            room,
+            rooms: withFirstRoom(s.rooms, room),
             items: keepItems ? clampElevations(shiftItems(s.items, shift), height) : [],
             pristine: false,
           }))
           return true
         },
         addItem: (item) => {
-          const n = normalizeItem(item, get().room.height)
+          const n = normalizeItem(item, selectRoom(get()).height)
           if (!n) return false
           set((s) => ({ items: [...s.items, n], pristine: false }))
           return true
@@ -125,7 +134,7 @@ export const useDocStore = create<DocState>()(
         updateItem: (id, patch) => {
           const cur = get().items.find((it) => it.id === id)
           if (!cur) return false
-          const n = normalizeItem({ ...cur, ...patch, id }, get().room.height)
+          const n = normalizeItem({ ...cur, ...patch, id }, selectRoom(get()).height)
           if (!n) return false
           set((s) => ({
             items: s.items.map((it) => (it.id === id ? n : it)),
@@ -137,13 +146,13 @@ export const useDocStore = create<DocState>()(
           set((s) => ({ items: s.items.filter((it) => it.id !== id), pristine: false })),
         // 사용자의 명시적 편집이므로 pristine=false (샘플도 저장본을 덮어쓴다)
         resetToSample: () => set({ ...createSample(), pristine: false }),
-        loadDocument: (doc) => set({ room: doc.room, items: doc.items, pristine: false }),
+        loadDocument: (doc) => set({ rooms: doc.rooms, items: doc.items, pristine: false }),
       }
     },
     {
       limit: UNDO_LIMIT,
-      partialize: (s) => ({ room: s.room, items: s.items }),
-      equality: (a, b) => a.room === b.room && a.items === b.items,
+      partialize: (s) => ({ rooms: s.rooms, items: s.items }),
+      equality: (a, b) => a.rooms === b.rooms && a.items === b.items,
     },
   ),
 )

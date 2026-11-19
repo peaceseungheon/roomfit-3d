@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Item } from '../store/types'
 import { countOutsideFurniture, formRoom, initialRoomForm } from './roomForm'
 
-const base = initialRoomForm({ height: 230, points: [[0, 0], [400, 0], [400, 300], [0, 300]] })
+const base = initialRoomForm({ id: 'r1', name: '방 1', height: 230, points: [[0, 0], [400, 0], [400, 300], [0, 300]] })
 const chair = (id: string, x: number, z: number): Item => ({
   id, type: 'FURNITURE', modelType: 'CHAIR', position: [x, 0, z], rotation: [0, 0, 0], size: [40, 80, 40],
 })

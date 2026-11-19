@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { processImportText, readImportFile } from '../io/importFile'
 import { serializeDocument } from '../io/persist'
 import { createSample } from '../store/sample'
-import { useDocStore } from '../store/useDocStore'
+import { selectRoom, useDocStore } from '../store/useDocStore'
 import { addFixture, importDocument, resetToSample } from './actions'
 import { makeFixture } from './fixturePlacement'
 import { initialRoomForm, roomFormErrors, submitRoomForm, type RoomForm } from './roomForm'
@@ -22,13 +22,13 @@ beforeEach(reset)
 
 describe('roomForm', () => {
   it('prefills from the current room', () => {
-    expect(initialRoomForm(useDocStore.getState().room)).toMatchObject({ kind: 'rect', width: '400', depth: '300', height: '230' })
+    expect(initialRoomForm(selectRoom(useDocStore.getState()))).toMatchObject({ kind: 'rect', width: '400', depth: '300', height: '230' })
   })
   it('reports field errors for bad input and blocks submit (AC-03-3)', () => {
     expect(Object.keys(roomFormErrors(form({ width: '', depth: '50', height: '1.5' })))).toEqual(['width', 'depth', 'height'])
     expect(roomFormErrors(form({ width: '3001' })).width).toBeDefined()
     expect(submitRoomForm(form({ width: 'abc' }))).toBe(false)
-    expect(useDocStore.getState().room.points[1][0]).toBe(400)
+    expect(selectRoom(useDocStore.getState()).points[1][0]).toBe(400)
     expect(past()).toBe(0)
   })
   it('L-room cut must be smaller than the whole', () => {
@@ -42,14 +42,14 @@ describe('roomForm', () => {
     useDocStore.temporal.getState().undo()
     expect(useDocStore.getState().items).toHaveLength(4)
     expect(submitRoomForm(form({ kind: 'L' }))).toBe(true)
-    expect(useDocStore.getState().room.points).toHaveLength(6)
+    expect(selectRoom(useDocStore.getState()).points).toHaveLength(6)
     expect(useDocStore.getState().items).toHaveLength(4)
   })
 })
 
 describe('fixtures (AC-06-1,3,5)', () => {
   it('places on the longest wall free gap centre, selected, door gets swing', () => {
-    const { room, items } = useDocStore.getState()
+    const { rooms: [room], items } = useDocStore.getState()
     const w = makeFixture('WINDOW', room, items)!
     // 샘플 가로 400 벽이 가장 길다(동률이면 첫 벽: 위쪽). 중앙 x=200, 창 폭 120
     expect(w.position).toEqual([200, 0, 0])
@@ -60,7 +60,7 @@ describe('fixtures (AC-06-1,3,5)', () => {
     expect(makeFixture('BED_QUEEN', room, items)).toBeNull()
   })
   it('avoids existing fixtures on the same wall', () => {
-    const { room } = useDocStore.getState()
+    const room = selectRoom(useDocStore.getState())
     const first = makeFixture('WINDOW', room, [])!
     const second = makeFixture('WINDOW', room, [first])!
     expect(Math.abs(second.position[0] - first.position[0])).toBeGreaterThanOrEqual(120)
@@ -86,8 +86,8 @@ describe('import / reset (AC-14-3,4,6)', () => {
     expect((await readImportFile({ size: 1, text: () => Promise.reject(new Error('x')) })).ok).toBe(false)
   })
   it('valid export round-trips and import is undoable', async () => {
-    const { room, items } = useDocStore.getState()
-    const out = await readImportFile({ size: 1, text: async () => serializeDocument({ room, items: items.slice(0, 1) }) })
+    const { rooms, items } = useDocStore.getState()
+    const out = await readImportFile({ size: 1, text: async () => serializeDocument({ rooms, items: items.slice(0, 1) }) })
     expect(out.ok).toBe(true)
     if (out.ok) importDocument(out.doc)
     expect(useDocStore.getState().items).toHaveLength(1)

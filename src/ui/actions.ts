@@ -2,7 +2,7 @@
 import { useStore } from 'zustand'
 import { isDragging } from '../scene/dragSession'
 import { findCatalog } from '../store/catalog'
-import { useDocStore } from '../store/useDocStore'
+import { selectRoom, useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { DocData } from '../store/types'
 import { makeFixture } from './fixturePlacement'
@@ -26,7 +26,9 @@ export function useCanUndoRedo() {
 export function addFromCatalog(modelType: string) {
   const entry = findCatalog(modelType)
   if (!entry || isDragging()) return
-  const { room, items, addItem } = useDocStore.getState()
+  const doc = useDocStore.getState()
+  const { items, addItem } = doc
+  const room = selectRoom(doc)
   const item = makeFromCatalog(entry, room, items)
   if (addItem(item)) useUiStore.getState().select(item.id)
 }
@@ -34,7 +36,9 @@ export function addFromCatalog(modelType: string) {
 /** 성공하면 true. 드래그 중이거나 스토어가 거부하면 false. */
 export function addDimensionBox(spec: Parameters<typeof makeDimensionBox>[0]): boolean {
   if (isDragging()) return false
-  const { room, items, addItem } = useDocStore.getState()
+  const doc = useDocStore.getState()
+  const { items, addItem } = doc
+  const room = selectRoom(doc)
   const item = makeDimensionBox(spec, room, items)
   if (!addItem(item)) return false
   useUiStore.getState().select(item.id)
@@ -44,7 +48,9 @@ export function addDimensionBox(spec: Parameters<typeof makeDimensionBox>[0]): b
 /** 고정 요소를 가장 긴 벽의 빈 구간 중앙에 추가하고 선택한다(AC-06-1). */
 export function addFixture(modelType: string) {
   if (isDragging()) return
-  const { room, items, addItem } = useDocStore.getState()
+  const doc = useDocStore.getState()
+  const { items, addItem } = doc
+  const room = selectRoom(doc)
   const item = makeFixture(modelType, room, items)
   if (item && addItem(item)) useUiStore.getState().select(item.id)
 }

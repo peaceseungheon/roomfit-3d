@@ -1,7 +1,7 @@
 // 간섭 판정 순수 로직(FR-11). 1unit=1cm, 방 좌표 (x, z) = 월드 (x, z).
 // 경고만 계산한다. 배치·이동을 막는 데 쓰지 않는다(AC-11-2).
 import { Box3, Vector3 } from 'three'
-import type { Item, Point2, Room } from '../store/types'
+import type { Item, Point2, RoomShape } from '../store/types'
 import { FIT_EPS, WALL_THICKNESS, fixtureKind, fixtureTransform, nearestWall } from './geometry'
 
 export type WarningKind = 'ITEM' | 'DOOR_SWING' | 'WALL' | 'FIXTURE_OVERLAP' | 'NO_SPACE'
@@ -171,7 +171,7 @@ function fixtureBox(item: Item, points: Point2[]): { box: Box3; wall: string } |
  * 현재 문서의 경고 목록.
  * ponytail: 쌍 판정 O(n²). 가구 수십 개(50개 ≈ 1.2천 쌍)는 드래그 프레임당 1ms 미만, 수백 개면 공간 분할로.
  */
-export function computeWarnings(room: Room, items: Item[]): Warning[] {
+export function computeWarnings(room: RoomShape, items: Item[]): Warning[] {
   const { points } = room
   const out: Warning[] = []
   const tmp = new Box3()

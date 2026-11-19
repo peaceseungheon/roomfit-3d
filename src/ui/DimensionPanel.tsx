@@ -6,7 +6,7 @@ import { nextRotation } from '../scene/interaction'
 import { fixtureKind, nearestWall } from '../scene/geometry'
 import { useWarnings } from '../scene/useWarnings'
 import { reasonsFor } from './warningText'
-import { useDocStore } from '../store/useDocStore'
+import { selectRoom, useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { Item } from '../store/types'
 import { deleteSelected, duplicateSelected, patchItem } from './actions'
@@ -149,7 +149,7 @@ function FurnitureFields({ item }: { item: Item }) {
 }
 
 function FixtureFields({ item }: { item: Item }) {
-  const room = useDocStore((s) => s.room)
+  const room = useDocStore(selectRoom)
   const kind = fixtureKind(item.modelType)
   const ui = toUiSize(item.size)
   // AC-06-3: 폭은 벽 길이를 넘을 수 없다

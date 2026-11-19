@@ -11,14 +11,14 @@ describe('placement', () => {
     expect(nextItemId(createSample().items)).toBe('item_004')
   })
   it('catalog placement lands in a free spot with W,H,D size', () => {
-    const { room, items } = createSample()
+    const { rooms: [room], items } = createSample()
     const desk = makeFromCatalog(findCatalog('DESK')!, room, items)
     expect(desk.size).toEqual([120, 73, 60])
     expect(desk.position[1]).toBe(0)
     expect(computeWarnings(room, [...items, desk]).length).toBe(0)
   })
   it('sample has zero warnings', () => {
-    const { room, items } = createSample()
+    const { rooms: [room], items } = createSample()
     expect(computeWarnings(room, items)).toEqual([])
   })
   it('duplicate has new id and offset', () => {
@@ -31,14 +31,14 @@ describe('placement', () => {
 
 describe('dimension box (FR-09)', () => {
   it('builds a DIMENSION_BOX furniture in a free spot', () => {
-    const { room, items } = createSample()
+    const { rooms: [room], items } = createSample()
     const box = makeDimensionBox({ size: [60, 40, 50], name: '  ', color: '#90caf9' }, room, items)
     expect(box).toMatchObject({ type: 'FURNITURE', modelType: 'DIMENSION_BOX', size: [60, 40, 50], color: '#90caf9' })
     expect(box.name).toBeUndefined()
     expect(computeWarnings(room, [...items, box]).length).toBe(0)
   })
   it('keeps trimmed name', () => {
-    const { room, items } = createSample()
+    const { rooms: [room], items } = createSample()
     expect(makeDimensionBox({ size: [10, 10, 10], name: ' 새 침대 ', color: '#fff' }, room, items).name).toBe('새 침대')
   })
   it('label falls back to 치수 박스; no affiliate link; not in catalog', () => {
@@ -47,9 +47,9 @@ describe('dimension box (FR-09)', () => {
     expect(findCatalog('DIMENSION_BOX')).toBeUndefined()
   })
   it('passes validateDoc roundtrip', () => {
-    const { room, items } = createSample()
+    const { rooms: [room], items } = createSample()
     const box = makeDimensionBox({ size: [150, 50, 200], color: '#90caf9' }, room, items)
-    const r = validateDocument({ projectInfo: { version: '1.0', lastModified: new Date().toISOString() }, room, items: [...items, box] })
+    const r = validateDocument({ projectInfo: { version: '1.1', lastModified: new Date().toISOString() }, rooms: [room], items: [...items, box] })
     expect(r.ok).toBe(true)
   })
 })

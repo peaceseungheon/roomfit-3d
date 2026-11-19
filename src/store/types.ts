@@ -1,4 +1,4 @@
-// 저장 JSON 스키마(version "1.0"). 길이 cm, rotation 도, size=[x(W),y(H),z(D)].
+// 저장 JSON 스키마(version "1.1", 읽기는 "1.0"도 지원). 길이 cm, rotation 도, size=[x(W),y(H),z(D)].
 export type Vec3 = [number, number, number]
 export type Point2 = [number, number] // [x, z]
 
@@ -22,23 +22,32 @@ export interface Item {
 }
 
 export interface Room {
+  id: string
+  name: string
   height: number
   points: Point2[]
 }
 
+/** id·name 없이 모양만 필요한 곳(검증·미리보기·판정)에 쓴다. */
+export type RoomShape = Pick<Room, 'height' | 'points'>
+
 export interface ProjectInfo {
-  version: '1.0'
+  version: '1.1'
   lastModified: string
 }
 
 export interface DocumentJson {
   projectInfo: ProjectInfo
-  room: Room
+  rooms: Room[]
   items: Item[]
 }
 
 /** Undo/Redo 및 저장 대상 문서 데이터 */
 export interface DocData {
-  room: Room
+  rooms: Room[]
   items: Item[]
 }
+
+export const DEFAULT_ROOM_ID = 'r1'
+/** n번째 방의 기본 이름 */
+export const defaultRoomName = (n: number): string => `방 ${n}`
