@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RoomFit 3D - 가구 배치 시뮬레이터</title>
+    <meta name="description" content="내 방 치수를 입력하고 가구를 미리 배치해 보세요. 가입·설치 없이 실제 치수 그대로 3D로 확인하고, 문 열림과 가구 간섭까지 점검합니다." />
+    <script type="module" src="/src/landing/page.ts"></script>
+  </head>
+  <body>
+    <header class="site">RoomFit 3D</header>
+    <main>
+      <section class="hero" aria-labelledby="h-hero">
+        <h1 id="h-hero">내 방에 가구, 사기 전에 넣어보세요</h1>
+        <p class="sub">실제 치수 그대로 · 가입 없이 · 설치 없이</p>
+        <a id="start" class="btn" href="/editor.html">시작하기</a>
+        <p id="webgl-error" role="alert" hidden>이 브라우저는 3D를 지원하지 않습니다. 최신 Chrome/Edge/Safari/Firefox를 사용하세요.</p>
+      </section>
+      <ul class="cards">
+        <li><strong>치수 입력 박스</strong><br />가구와 방 치수를 cm 단위로 직접 입력합니다.</li>
+        <li><strong>문 열림 경고</strong><br />문이 열리는 반경과 가구가 겹치면 붉게 알려 줍니다.</li>
+        <li><strong>시점 전환</strong><br />2D 평면, 3D 쿼터, 1인칭 눈높이로 둘러봅니다.</li>
+      </ul>
+      <details open>
+        <summary><h2>사용법</h2></summary>
+        <ol class="steps">
+          <li><strong>1. 방 만들기</strong><br />방의 가로·세로와 천장 높이를 입력하거나 모서리를 끌어 모양을 맞춥니다. 문과 창문, 콘센트 위치도 표시할 수 있습니다.</li>
+          <li><strong>2. 가구 넣기</strong><br />목록에서 가구를 골라 방에 놓고 끌어서 옮기거나 회전합니다. 이동은 10cm 단위로 맞춰집니다.</li>
+          <li><strong>3. 간섭 확인</strong><br />가구끼리 겹치거나 문이 열리는 길을 막으면 붉은색과 경고로 알려 줍니다. 결과는 JSON 파일로 저장할 수 있습니다.</li>
+        </ol>
+      </details>
+      <details open>
+        <summary><h2>가구 치수 가이드</h2></summary>
+        <table>
+          <caption>기본 가구 15종 (가로 × 깊이 × 높이, cm)</caption>
+          <thead><tr><th scope="col">가구</th><th scope="col">W × D × H (cm)</th></tr></thead>
+          <tbody id="dim-rows"></tbody>
+        </table>
+        <h3>배치 전에 재야 할 치수</h3>
+        <ul>
+          <li>방의 가로·세로와 천장 높이(벽 안쪽 기준으로 잰다).</li>
+          <li>문 너비와 문이 열리는 방향, 열렸을 때 필요한 공간.</li>
+          <li>창문의 너비·높이와 바닥에서 창문 아래까지의 높이.</li>
+          <li>콘센트의 위치와 바닥에서의 높이(가전 배치에 영향).</li>
+          <li>현관·복도·엘리베이터 등 가구를 들여올 통로의 가장 좁은 폭.</li>
+          <li>살 가구의 실제 가로·깊이·높이(위 표는 일반적인 기본값이며 제품마다 다르다).</li>
+        </ul>
+      </details>
+      <details open>
+        <summary><h2>자주 묻는 질문</h2></summary>
+        <h3>가입이 필요한가요?</h3>
+        <p>아니요. 가입·로그인 없이 바로 쓸 수 있습니다.</p>
+        <h3>입력한 방 정보는 어디에 저장되나요?</h3>
+        <p>이 브라우저의 로컬 저장소에만 저장되며 서버로 전송하지 않습니다. 다른 기기에서 보려면 JSON 파일로 내보내세요.</p>
+        <h3>치수가 실제와 같나요?</h3>
+        <p>1 단위가 1cm인 실제 치수로 그립니다. 다만 가구 기본 치수는 일반적인 값이므로 구매할 제품의 치수를 직접 입력해 확인하세요.</p>
+        <h3>스마트폰에서도 되나요?</h3>
+        <p>네. 화면 크기에 맞춰 패널이 바뀌며 모든 기능을 쓸 수 있습니다.</p>
+      </details>
+      <div class="ad-slot" data-ad-slot hidden aria-label="광고"></div>
+    </main>
+    <div id="consent-banner" class="consent-banner" role="region" aria-labelledby="consent-title" hidden>
+      <p><strong id="consent-title">광고·쿠키 동의</strong><br />광고를 표시하기 위해 쿠키를 사용할 수 있습니다. 방·가구 데이터는 전송되지 않습니다. <a href="/privacy.html">개인정보처리방침</a></p>
+      <div class="row">
+        <button type="button" id="consent-deny">거부</button>
+        <button type="button" id="consent-grant">허용</button>
+      </div>
+    </div>
+    <footer>
+      <a href="/privacy.html">개인정보처리방침</a>
+      <span data-consent-link hidden> · <a href="#" id="consent-settings">동의 설정</a></span>
+      <span id="consent-note" role="status" hidden> 선택을 저장하지 못해 이번 방문에만 적용됩니다. 다음 방문에 다시 물을 수 있습니다.</span>
+    </footer>
+  </body>
+</html>
