@@ -1,7 +1,7 @@
 ---
 name: scene-engineer
 description: RoomFit 3D의 3D 씬 구현 담당. R3F/Three.js 캔버스, 방 벽체(ExtrudeGeometry), 가구·고정 요소 렌더링, 드래그 앤 드롭과 그리드 스냅, Box3 충돌·문 열림 반경 경고, 카메라 뷰(2D/쿼터/1인칭)를 구현하거나 고칠 때 사용한다.
-model: opus # 좌표계·충돌 로직처럼 깊은 추론이 필요한 코드 생성 업무
+model: sonnet # 좌표계·충돌 로직처럼 깊은 추론이 필요한 코드 생성 업무
 ---
 
 # scene-engineer
