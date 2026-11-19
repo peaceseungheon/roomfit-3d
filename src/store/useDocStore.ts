@@ -1,16 +1,33 @@
 import { create } from 'zustand'
 import { temporal } from 'zundo'
 import { createSample } from './sample'
-import { ITEM_MAX_H, ITEM_MAX_WD, validateRoom, validateRoomInput } from '../io/validate'
-import { shiftItems } from './rooms'
-import type { DocData, Item, Room, RoomShape } from './types'
+import {
+  ITEM_MAX_H,
+  ITEM_MAX_WD,
+  NAME_MAX,
+  PLAN_EXTENT_MAX,
+  ROOMS_MAX,
+  validateRoom,
+  validateRoomInput,
+} from '../io/validate'
+import { roomsOverlap } from '../io/roomOverlap'
+import { isDragging } from '../scene/dragSession'
+import { ceilingForItem, clampElevations, nextRoomId, planShift, shiftDocument, shiftItems, withRoom } from './rooms'
+import { DEFAULT_ROOM_ID, defaultRoomName, type DocData, type Item, type Room, type RoomShape } from './types'
 
 export const UNDO_LIMIT = 50
 
 interface DocState extends DocData {
   /** 샘플 그대로이고 사용자가 아직 편집하지 않은 상태(AC-02-2). Undo 비대상. */
   pristine: boolean
-  setRoom: (room: Room) => void
+  /** 방 목록에 방을 추가한다(기존 문서 보존). 실패하면 null. */
+  addRoom: (shape: RoomShape, name?: string) => string | null
+  /** 마지막 방이거나 없는 id면 false. 가구는 삭제하지 않는다. */
+  removeRoom: (id: string) => boolean
+  /** trim 후 1~NAME_MAX 자가 아니거나 없는 id면 false. */
+  renameRoom: (id: string, name: string) => boolean
+  /** 방 하나의 height·points를 교체한다. 다른 방과 겹치면 false. */
+  setRoomGeometry: (id: string, shape: RoomShape) => boolean
   /** 입력이 validateRoomInput 범위를 벗어나면 상태를 바꾸지 않고 false. */
   createRectRoom: (width: number, depth: number, height: number, keepItems?: boolean) => boolean
   /** ㄱ자: 우상단(max x, min z) 모서리를 cutWidth x cutDepth 만큼 잘라낸다(AC-03-2). 범위 밖이면 false. */
@@ -22,7 +39,7 @@ interface DocState extends DocData {
     cutDepth: number,
     keepItems?: boolean,
   ) => boolean
-  /** 트레이싱 다각형으로 방 교체(Undo 1단계). validateRoom 실패 시 상태 유지 후 false. */
+  /** 트레이싱 다각형으로 문서 전체 교체(Undo 1단계). validateRoom 실패 시 상태 유지 후 false. */
   createPolygonRoom: (points: Room['points'], height: number, keepItems?: boolean, shift?: [number, number]) => boolean
   /** 규약 강제(y=0, 크기 clamp). 숫자가 유한하지 않으면 거부하고 false. 10cm 스냅은 scene 책임. */
   addItem: (item: Item) => boolean
@@ -50,12 +67,6 @@ export const rectPoints = (w: number, d: number): Room['points'] => [
   [w, d],
   [0, d],
 ]
-
-/** 천장고가 낮아졌을 때 기존 elevation을 새 천장고로 clamp(AC-03-4). 바뀐 게 없으면 같은 배열. */
-const clampElevations = (items: Item[], ceil: number): Item[] =>
-  items.some((it) => (it.elevation ?? 0) > ceil)
-    ? items.map((it) => ((it.elevation ?? 0) > ceil ? { ...it, elevation: ceil } : it))
-    : items
 
 // roomForm.ts 등 기존 import 경로 유지용 re-export
 export { shiftItems }
@@ -85,6 +96,24 @@ export function normalizeItem(it: Item, ceil: number): Item | null {
   }
 }
 
+/** 문서 전체 꼭짓점 가로·세로 폭이 PLAN_EXTENT_MAX 이하인지. */
+const withinPlanExtent = (rooms: readonly Room[]): boolean => {
+  const xs = rooms.flatMap((r) => r.points.map((p) => p[0]))
+  const zs = rooms.flatMap((r) => r.points.map((p) => p[1]))
+  return Math.max(...xs) - Math.min(...xs) <= PLAN_EXTENT_MAX && Math.max(...zs) - Math.min(...zs) <= PLAN_EXTENT_MAX
+}
+
+/** 방 하나로 문서 전체를 교체하는 공통 경로(rect/L/폴리곤). items는 keepItems일 때만 새 방 기준으로 clamp. */
+const replaceWithRoom = (
+  set: (fn: (s: DocState) => Partial<DocState>) => void,
+  shape: RoomShape,
+  keepItems: boolean,
+  shift?: [number, number],
+) => {
+  const room: Room = { id: DEFAULT_ROOM_ID, name: defaultRoomName(1), height: shape.height, points: shape.points }
+  set((s) => ({ rooms: [room], items: keepItems ? clampElevations(shiftItems(s.items, shift), [room]) : [], pristine: false }))
+}
+
 export const useDocStore = create<DocState>()(
   temporal(
     (set, get) => {
@@ -92,39 +121,64 @@ export const useDocStore = create<DocState>()(
       return {
         ...sample,
         pristine: true,
-        setRoom: (room) =>
-          set((s) => ({ rooms: withFirstRoom(s.rooms, room), items: clampElevations(s.items, room.height), pristine: false })),
+        addRoom: (shape, name) => {
+          if (isDragging()) return null
+          const s = get()
+          if (s.rooms.length >= ROOMS_MAX || validateRoom(shape).length) return null
+          const nm = (name ?? defaultRoomName(s.rooms.length + 1)).trim()
+          if (nm.length < 1 || nm.length > NAME_MAX) return null
+          if (s.rooms.some((r) => roomsOverlap(r.points, shape.points))) return null
+          const rooms: Room[] = [...s.rooms, { id: nextRoomId(s.rooms), name: nm, height: shape.height, points: shape.points }]
+          if (!withinPlanExtent(rooms)) return null
+          const doc = shiftDocument({ rooms, items: s.items }, planShift(rooms))
+          set({ rooms: doc.rooms, items: doc.items, pristine: false })
+          return rooms[rooms.length - 1].id
+        },
+        removeRoom: (id) => {
+          if (isDragging()) return false
+          const s = get()
+          if (s.rooms.length <= 1 || !s.rooms.some((r) => r.id === id)) return false
+          set({ rooms: s.rooms.filter((r) => r.id !== id), pristine: false })
+          return true
+        },
+        renameRoom: (id, name) => {
+          if (isDragging()) return false
+          const nm = name.trim()
+          if (nm.length < 1 || nm.length > NAME_MAX) return false
+          const s = get()
+          if (!s.rooms.some((r) => r.id === id)) return false
+          set({ rooms: s.rooms.map((r) => (r.id === id ? { ...r, name: nm } : r)), pristine: false })
+          return true
+        },
+        setRoomGeometry: (id, shape) => {
+          if (isDragging()) return false
+          const s = get()
+          if (!s.rooms.some((r) => r.id === id) || validateRoom(shape).length) return false
+          if (s.rooms.some((r) => r.id !== id && roomsOverlap(r.points, shape.points))) return false
+          const rooms = withRoom(s.rooms, id, shape)
+          const doc = shiftDocument({ rooms, items: clampElevations(s.items, rooms) }, planShift(rooms))
+          set({ rooms: doc.rooms, items: doc.items, pristine: false })
+          return true
+        },
         createRectRoom: (w, d, height, keepItems = true) => {
           if (Object.keys(validateRoomInput({ kind: 'rect', width: w, depth: d, height })).length) return false
-          set((s) => ({
-            rooms: withFirstRoom(s.rooms, { height, points: rectPoints(w, d) }),
-            items: keepItems ? clampElevations(s.items, height) : [],
-            pristine: false,
-          }))
+          replaceWithRoom(set, { height, points: rectPoints(w, d) }, keepItems)
           return true
         },
         createLRoom: (w, d, height, cw, cd, keepItems = true) => {
           const input = { kind: 'L' as const, width: w, depth: d, height, cutWidth: cw, cutDepth: cd }
           if (Object.keys(validateRoomInput(input)).length) return false
-          set((s) => ({
-            rooms: withFirstRoom(s.rooms, { height, points: lPoints(w, d, cw, cd) }),
-            items: keepItems ? clampElevations(s.items, height) : [],
-            pristine: false,
-          }))
+          replaceWithRoom(set, { height, points: lPoints(w, d, cw, cd) }, keepItems)
           return true
         },
         createPolygonRoom: (points, height, keepItems = true, shift) => {
-          const room = { height, points }
-          if (validateRoom(room).length) return false
-          set((s) => ({
-            rooms: withFirstRoom(s.rooms, room),
-            items: keepItems ? clampElevations(shiftItems(s.items, shift), height) : [],
-            pristine: false,
-          }))
+          const shape = { height, points }
+          if (validateRoom(shape).length) return false
+          replaceWithRoom(set, shape, keepItems, shift)
           return true
         },
         addItem: (item) => {
-          const n = normalizeItem(item, selectRoom(get()).height)
+          const n = normalizeItem(item, ceilingForItem(get().rooms, item))
           if (!n) return false
           set((s) => ({ items: [...s.items, n], pristine: false }))
           return true
@@ -132,7 +186,8 @@ export const useDocStore = create<DocState>()(
         updateItem: (id, patch) => {
           const cur = get().items.find((it) => it.id === id)
           if (!cur) return false
-          const n = normalizeItem({ ...cur, ...patch, id }, selectRoom(get()).height)
+          const cand = { ...cur, ...patch, id }
+          const n = normalizeItem(cand, ceilingForItem(get().rooms, cand))
           if (!n) return false
           set((s) => ({
             items: s.items.map((it) => (it.id === id ? n : it)),

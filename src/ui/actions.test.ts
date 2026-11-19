@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createSample } from '../store/sample'
 import { selectRoom, useDocStore } from '../store/useDocStore'
+import { getActiveRoom } from '../store/activeRoom'
 import { useUiStore } from '../store/useUiStore'
 import type { Item } from '../store/types'
 import { deleteSelected } from './actions'
@@ -35,8 +36,8 @@ describe('elevation 상한', () => {
     useDocStore.getState().createRectRoom(400, 300, 250, true)
     expect(useDocStore.getState().items.find((i) => i.id === 'e1')?.elevation).toBe(250)
     useDocStore.getState().addItem(item('e2', { elevation: 240 }))
-    const room = selectRoom(useDocStore.getState())
-    useDocStore.getState().setRoom({ ...room, height: 200 })
+    const room = getActiveRoom()
+    useDocStore.getState().setRoomGeometry(room.id, { ...room, height: 200 })
     expect(useDocStore.getState().items.find((i) => i.id === 'e2')?.elevation).toBe(200)
   })
 })

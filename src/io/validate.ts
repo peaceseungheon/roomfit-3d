@@ -1,4 +1,5 @@
 import { DEFAULT_ROOM_ID, defaultRoomName, type DocumentJson, type Item, type Point2, type Room, type RoomShape, type Vec3 } from '../store/types'
+import { ceilingForItem } from '../store/rooms'
 import { roomsOverlap } from './roomOverlap'
 
 export const ROOM_MAX = 3000
@@ -100,7 +101,18 @@ function checkRooms(rooms: unknown, errs: ValidationError[]) {
       errs.push({ path: 'rooms', message: `문서 전체 ${axis === 0 ? '가로' : '세로'}가 ${PLAN_EXTENT_MAX}cm를 넘습니다` })
 }
 
-function checkItem(it: unknown, i: number, errs: ValidationError[], ids: Set<string>, ctxHeight?: number) {
+/** elevation 상한 계산에 쓸 수 있는 방(형식이 유효한 것만). 소속 판정은 ceilingForItem이 한다. */
+function ceilingRooms(rooms: unknown[]): Room[] {
+  const out: Room[] = []
+  for (const r of rooms) {
+    if (!isObj(r) || !isNum(r.height) || !Array.isArray(r.points)) continue
+    if (!r.points.every((p) => Array.isArray(p) && p.length === 2 && p.every(isNum))) continue
+    out.push({ id: '', name: '', height: r.height, points: r.points as Point2[] })
+  }
+  return out
+}
+
+function checkItem(it: unknown, i: number, errs: ValidationError[], ids: Set<string>, ceilRooms: readonly Room[]) {
   const p = `items[${i}]`
   if (!isObj(it)) {
     errs.push({ path: p, message: '객체여야 합니다' })
@@ -117,10 +129,12 @@ function checkItem(it: unknown, i: number, errs: ValidationError[], ids: Set<str
     errs.push({ path: `${p}.name`, message: `${NAME_MAX}자 이하 문자열이어야 합니다` })
   if (it.color !== undefined && (typeof it.color !== 'string' || !COLOR_RE.test(it.color)))
     errs.push({ path: `${p}.color`, message: '#RGB 또는 #RRGGBB 형식이어야 합니다' })
-  if (vec3(it.position, `${p}.position`, errs)) {
-    if (it.position[1] !== 0) errs.push({ path: `${p}.position[1]`, message: 'y는 0이어야 합니다' })
+  const posOk = vec3(it.position, `${p}.position`, errs)
+  if (posOk) {
+    const pos = it.position as Vec3
+    if (pos[1] !== 0) errs.push({ path: `${p}.position[1]`, message: 'y는 0이어야 합니다' })
     for (const a of [0, 2])
-      if (Math.abs(it.position[a]) > PLAN_EXTENT_MAX)
+      if (Math.abs(pos[a]) > PLAN_EXTENT_MAX)
         errs.push({ path: `${p}.position[${a}]`, message: `±${PLAN_EXTENT_MAX}cm 범위를 벗어났습니다` })
   }
   vec3(it.rotation, `${p}.rotation`, errs)
@@ -131,9 +145,13 @@ function checkItem(it: unknown, i: number, errs: ValidationError[], ids: Set<str
     if (!(d > 0 && d <= ITEM_MAX_WD)) errs.push({ path: `${p}.size[2]`, message: `깊이는 0 초과 ${ITEM_MAX_WD}cm 이하` })
   }
   if (it.elevation !== undefined) {
-    const room = ctxHeight
-    if (!isNum(it.elevation) || it.elevation < 0 || (room !== undefined && it.elevation > room))
-      errs.push({ path: `${p}.elevation`, message: `0 이상${room !== undefined ? ` ${room}cm(천장고) 이하` : ''} 숫자여야 합니다` })
+    // 상한은 소속 방(고정 요소는 호스트 벽 방) 천장고. 소속이 없으면 모든 방의 최솟값.
+    const ceiling = posOk && ceilRooms.length ? ceilingForItem(ceilRooms, it as unknown as Item) : undefined
+    if (!isNum(it.elevation) || it.elevation < 0 || (ceiling !== undefined && it.elevation > ceiling))
+      errs.push({
+        path: `${p}.elevation`,
+        message: `0 이상${ceiling !== undefined ? ` ${ceiling}cm(천장고) 이하` : ''} 숫자여야 합니다`,
+      })
   }
   if (it.doorSwing !== undefined) {
     const s = it.doorSwing
@@ -171,10 +189,8 @@ export function validateDocument(input: unknown): Result<DocumentJson> {
   if (!Array.isArray(input.items)) errs.push({ path: 'items', message: '배열이어야 합니다' })
   else {
     const ids = new Set<string>()
-    // 소속 방을 아직 판정하지 않으므로 가장 낮은 천장고 기준
-    const heights = rooms.map((r) => (isObj(r) ? r.height : undefined)).filter(isNum)
-    const ceil = heights.length ? Math.min(...heights) : undefined
-    input.items.forEach((it, i) => checkItem(it, i, errs, ids, ceil))
+    const ceilRooms = ceilingRooms(rooms)
+    input.items.forEach((it, i) => checkItem(it, i, errs, ids, ceilRooms))
   }
   if (errs.length) return { ok: false, errors: errs }
   return {

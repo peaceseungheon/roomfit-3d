@@ -126,7 +126,6 @@ describe('다중 방 문서(1.0/1.1)', () => {
     rooms,
     items,
   })
-  const elevItem = (elevation: number) => ({ ...createSample().items[0], elevation })
 
   it('1.0 문서는 rooms 1개(r1, 방 1)로 정규화된다', () => {
     const s = createSample()
@@ -181,10 +180,18 @@ describe('다중 방 문서(1.0/1.1)', () => {
     const it0 = { ...createSample().items[1], position: [7500, 0, 50] }
     expect(paths(doc11([room('a', sq(0, 0, 3000, 100)), room('b', sq(7000, 0, 3000, 100))], [it0]))).toEqual([])
   })
-  it('elevation은 가장 낮은 천장고 기준', () => {
-    const rooms = [room('a', sq(0, 0), 230), room('b', sq(300, 0), 200)]
-    expect(paths(doc11(rooms, [elevItem(200)]))).toEqual([])
-    expect(paths(doc11(rooms, [elevItem(210)]))).toContain('items[0].elevation')
+  it('elevation 상한은 소속 방 천장고, 소속 없으면 최저값', () => {
+    const rooms = [room('a', sq(0, 0), 240), room('b', sq(300, 0), 180)]
+    // 240 방 벽에 둔 창 elevation 200은 통과해야 한다(최저값 180 기준이면 거부 — 회귀 방지)
+    const win = {
+      ...createSample().items[0],
+      id: 'win', type: 'FIXTURE' as const, modelType: 'WINDOW',
+      position: [150, 0, 0] as [number, number, number], size: [120, 110, 5] as [number, number, number], elevation: 200,
+    }
+    expect(parseDocument(serializeDocument({ rooms, items: [win] })).ok).toBe(true)
+    // 소속 없는 가구는 모든 방 최저 천장고 180을 넘으므로 거부
+    const loose = { ...createSample().items[1], id: 'loose', position: [5000, 0, 0], elevation: 200 }
+    expect(paths(doc11(rooms, [loose]))).toContain('items[0].elevation')
   })
   it('1.1의 room 키는 무시, 1.0에 room이 없으면 오류, 모르는 버전은 거부', () => {
     const d = { ...doc11([room('a', sq(0, 0))]), room: 'garbage' }
