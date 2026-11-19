@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { processImportText, readImportFile } from '../io/importFile'
 import { serializeDocument } from '../io/persist'
 import { createSample } from '../store/sample'
-import { selectRoom, useDocStore } from '../store/useDocStore'
+import { useDocStore } from '../store/useDocStore'
+import { getActiveRoom } from '../store/activeRoom'
 import { addFixture, importDocument, resetToSample } from './actions'
 import { makeFixture } from './fixturePlacement'
 import { initialRoomForm, roomFormErrors, submitRoomForm, type RoomForm } from './roomForm'
@@ -22,13 +23,13 @@ beforeEach(reset)
 
 describe('roomForm', () => {
   it('prefills from the current room', () => {
-    expect(initialRoomForm(selectRoom(useDocStore.getState()))).toMatchObject({ kind: 'rect', width: '400', depth: '300', height: '230' })
+    expect(initialRoomForm(getActiveRoom())).toMatchObject({ kind: 'rect', width: '400', depth: '300', height: '230' })
   })
   it('reports field errors for bad input and blocks submit (AC-03-3)', () => {
     expect(Object.keys(roomFormErrors(form({ width: '', depth: '50', height: '1.5' })))).toEqual(['width', 'depth', 'height'])
     expect(roomFormErrors(form({ width: '3001' })).width).toBeDefined()
     expect(submitRoomForm(form({ width: 'abc' }))).toBe(false)
-    expect(selectRoom(useDocStore.getState()).points[1][0]).toBe(400)
+    expect(getActiveRoom().points[1][0]).toBe(400)
     expect(past()).toBe(0)
   })
   it('L-room cut must be smaller than the whole', () => {
@@ -42,7 +43,7 @@ describe('roomForm', () => {
     useDocStore.temporal.getState().undo()
     expect(useDocStore.getState().items).toHaveLength(4)
     expect(submitRoomForm(form({ kind: 'L' }))).toBe(true)
-    expect(selectRoom(useDocStore.getState()).points).toHaveLength(6)
+    expect(getActiveRoom().points).toHaveLength(6)
     expect(useDocStore.getState().items).toHaveLength(4)
   })
 })

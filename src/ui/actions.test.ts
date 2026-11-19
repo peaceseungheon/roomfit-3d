@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createSample } from '../store/sample'
-import { selectRoom, useDocStore } from '../store/useDocStore'
+import { useDocStore } from '../store/useDocStore'
 import { getActiveRoom } from '../store/activeRoom'
 import { useUiStore } from '../store/useUiStore'
 import type { Item } from '../store/types'
@@ -24,7 +24,7 @@ beforeEach(() => {
 
 describe('elevation 상한', () => {
   it('addItem/updateItem은 0~천장고로 clamp', () => {
-    const h = selectRoom(useDocStore.getState()).height
+    const h = getActiveRoom().height
     useDocStore.getState().addItem(item('e1', { elevation: h + 50 }))
     expect(useDocStore.getState().items.find((i) => i.id === 'e1')?.elevation).toBe(h)
     useDocStore.getState().updateItem('e1', { elevation: -5 })

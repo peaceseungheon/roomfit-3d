@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Point2 } from './types'
 import { createSample } from './sample'
 import { cornersCm, previewPoint, selectIsBlank, traceStep, useTraceStore } from './useTraceStore'
-import { selectRoom, useDocStore } from './useDocStore'
+import { useDocStore } from './useDocStore'
+import { getActiveRoom } from './activeRoom'
 import { useEditStore } from './useEditStore'
 import { useUiStore } from './useUiStore'
 
@@ -144,7 +145,7 @@ describe('닫은 뒤 점 삽입/삭제(트레이싱)', () => {
 
 describe('useEditStore 점 삽입/삭제(방 편집, AC-05-5)', () => {
   const past = () => useDocStore.temporal.getState().pastStates.length
-  const pts = () => selectRoom(useDocStore.getState()).points
+  const pts = () => getActiveRoom().points
   it('삽입은 Undo 1단계, 새 점 선택', () => {
     const n = pts().length
     const before = past()
@@ -162,7 +163,7 @@ describe('useEditStore 점 삽입/삭제(방 편집, AC-05-5)', () => {
     expect(useEditStore.getState().deleteCorner(1)).toBe(true)
     expect(pts()).toHaveLength(n - 1)
     expect(past()).toBe(before + 1)
-    useDocStore.setState({ rooms: [{ ...selectRoom(useDocStore.getState()), points: [[0, 0], [300, 0], [0, 300]] }] })
+    useDocStore.setState({ rooms: [{ ...getActiveRoom(), points: [[0, 0], [300, 0], [0, 300]] }] })
     expect(useEditStore.getState().deleteCorner(0)).toBe(false)
     expect(useUiStore.getState().notice).toContain('3개')
   })

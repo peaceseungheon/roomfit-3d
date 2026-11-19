@@ -1,6 +1,9 @@
-import { DEFAULT_ROOM_ID, defaultRoomName, type DocumentJson, type Item, type Point2, type Room, type RoomShape, type Vec3 } from '../store/types'
+import { DEFAULT_ROOM_ID, PLAN_EXTENT_MAX, defaultRoomName, type DocumentJson, type Item, type Point2, type Room, type RoomShape, type Vec3 } from '../store/types'
 import { ceilingForItem } from '../store/rooms'
 import { roomsOverlap } from './roomOverlap'
+
+// 기존 import 경로 유지용 re-export. 정의는 store/types.ts(순수 상수)에 있다.
+export { PLAN_EXTENT_MAX }
 
 export const ROOM_MAX = 3000
 export const ROOM_MIN = 100
@@ -12,7 +15,6 @@ export const ITEM_MAX_H = 500
 export const NAME_MAX = 100
 export const POINTS_MAX = 100
 export const ROOMS_MAX = 20
-export const PLAN_EXTENT_MAX = 10000
 const COLOR_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i
 const SWING_DIRS = ['LEFT_IN', 'RIGHT_IN', 'LEFT_OUT', 'RIGHT_OUT']
 

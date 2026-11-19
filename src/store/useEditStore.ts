@@ -3,13 +3,16 @@
 // 끝에서 시작 상태로 되돌린 뒤 resume하고 최종값을 loadDocument 1회로 커밋한다(scene/dragSession.ts와 같은 방식).
 // 드래그 중에는 dragLock으로 Undo·삭제·불러오기를 막고, 그래도 외부 변경이 있었으면(rooms·items 참조가 세션이 쓴 값과 다름) 복원·커밋 없이 resume만 한다.
 import { create } from 'zustand'
+import { roomsOverlap } from '../io/roomOverlap'
 import { isDragging } from '../scene/dragSession'
 import { snapStep } from '../scene/interaction'
 import { deletePoint, insertPoint } from '../trace/draw'
 import { editError, movePoint, relocateFixtures, setWallLength as wallLengthPoints } from '../trace/trace'
+import { findRoom, getActiveRoom } from './activeRoom'
 import { lockDoc, unlockDoc } from './dragLock'
+import { applyRoomGeometry, planShift, shiftDocument, withRoom } from './rooms'
 import type { DocData, Item, Point2, Room } from './types'
-import { selectRoom, useDocStore, withFirstRoom } from './useDocStore'
+import { useDocStore } from './useDocStore'
 import { useUiStore } from './useUiStore'
 
 interface EditState {
@@ -62,17 +65,29 @@ const closeSession = () => {
 
 const notice = (m: string) => useUiStore.getState().setNotice(`⚠ ${m}`)
 
-/** 방 points 교체 + 고정 요소 재배치를 문서에 1회 커밋(AC-05-4). 위반이면 null이 아닌 오류 문구. */
+/** 활성 방 points 교체 + 고정 요소 재배치 + 좌표 이동을 문서에 1회 커밋(AC-05-4, Undo 1단계). 위반이면 오류 문구. */
 function commitPoints(points: Point2[]): string | null {
-  const { rooms, items } = useDocStore.getState()
+  const doc = useDocStore.getState()
+  const active = getActiveRoom()
   const err = editError(points)
   if (err) return err
-  const next = withFirstRoom(rooms, { ...rooms[0], points })
-  const re = relocateFixtures(next, items)
-  useDocStore.getState().loadDocument({ rooms: next, items: re.items })
+  if (doc.rooms.some((r) => r.id !== active.id && roomsOverlap(r.points, points))) return '다른 방과 겹칩니다'
+  const rooms = withRoom(doc.rooms, active.id, { height: active.height, points })
+  const re = relocateFixtures(rooms, doc.items)
+  // 좌표 불변식: 음수 좌표가 생기면 방·가구를 같은 양만큼 옮긴다(같은 Undo 단계)
+  const shifted = shiftDocument({ rooms, items: re.items }, planShift(rooms))
+  const shape = shifted.rooms.find((r) => r.id === active.id)
+  if (!shape) return '방을 찾을 수 없습니다'
+  const next = applyRoomGeometry(shifted, active.id, { height: shape.height, points: shape.points })
+  if (!next) return '방 편집 결과가 저장 가능한 범위를 넘습니다'
+  useDocStore.getState().loadDocument(next)
   if (re.unfit.length) notice(`${re.unfit.length}개 고정 요소가 들어갈 자리가 없어 그대로 두었습니다`)
   return null
 }
+
+/** 다른 방과 내부 면적이 겹치는가. */
+const overlapsOther = (rooms: readonly Room[], activeId: string, points: Point2[]): boolean =>
+  rooms.some((r) => r.id !== activeId && roomsOverlap(r.points, points))
 
 export const useEditStore = create<EditState>()((set, get) => ({
   editing: false,
@@ -87,9 +102,9 @@ export const useEditStore = create<EditState>()((set, get) => ({
   selectWall: (selectedWall) => set({ selectedWall, selectedCorner: null }),
   beginCornerDrag: (i) => {
     get().cancelCornerDrag()
-    const d = useDocStore.getState()
-    const { rooms, items, pristine } = d
-    if (isDragging() || !selectRoom(d).points[i]) return false
+    const { rooms, items, pristine } = useDocStore.getState()
+    const active = getActiveRoom()
+    if (isDragging() || !active.points[i]) return false
     useDocStore.temporal.getState().pause()
     session = { start: { rooms, items }, pristine, lastOk: true, lastRooms: rooms, items }
     lockDoc('corner')
@@ -103,10 +118,12 @@ export const useEditStore = create<EditState>()((set, get) => ({
       return false
     }
     const { rooms } = useDocStore.getState()
-    const pts = movePoint(rooms[0].points, i, x, z, snapStep(useUiStore.getState().snapEnabled))
-    session.lastOk = pts !== null && editError(pts) === null
-    if (!pts || !session.lastOk) return false
-    useDocStore.setState({ rooms: withFirstRoom(rooms, { ...rooms[0], points: pts }) }) // pause 상태라 이력에 안 남는다
+    const active = getActiveRoom()
+    const pts = movePoint(active.points, i, x, z, snapStep(useUiStore.getState().snapEnabled))
+    const ok = pts !== null && editError(pts) === null && !overlapsOther(rooms, active.id, pts)
+    session.lastOk = ok
+    if (!pts || !ok) return false
+    useDocStore.setState({ rooms: withRoom(rooms, active.id, { ...active, points: pts }) }) // pause 상태라 이력에 안 남는다
     session.lastRooms = useDocStore.getState().rooms
     return true
   },
@@ -116,14 +133,15 @@ export const useEditStore = create<EditState>()((set, get) => ({
     set({ draggingCorner: null })
     if (!s || i === null) return closeSession()
     if (!untouched(s)) return closeSession() // 외부 변경: 복원·커밋 없이 pause만 푼다
-    const finalRoom = selectRoom(useDocStore.getState())
+    const finalRoom = getActiveRoom()
     useDocStore.setState({ rooms: s.start.rooms, items: s.start.items, pristine: s.pristine })
     closeSession()
     if (!s.lastOk) return notice('벽이 서로 교차하거나 방 크기 상한을 넘어 편집을 취소했습니다') // AC-05-3
     const a = finalRoom.points
-    const b = selectRoom(s.start).points
+    const b = findRoom(s.start.rooms, finalRoom.id).points
     if (a.length === b.length && a.every((p, k) => p[0] === b[k][0] && p[1] === b[k][1])) return // 이동 없음: 이력 없음
-    commitPoints(a)
+    const err = commitPoints(a)
+    if (err) notice(err)
   },
   cancelCornerDrag: () => {
     const s = session
@@ -134,14 +152,14 @@ export const useEditStore = create<EditState>()((set, get) => ({
   },
   setWallLength: (i, len) => {
     if (isDragging() || session) return false
-    const r = wallLengthPoints(selectRoom(useDocStore.getState()).points, i, len)
+    const r = wallLengthPoints(getActiveRoom().points, i, len)
     const err = r.ok ? commitPoints(r.value) : r.error
     if (err) notice(err)
     return err === null
   },
   insertCorner: (wallIndex, x, z) => {
     if (isDragging() || session) return false
-    const r = insertPoint(selectRoom(useDocStore.getState()).points, wallIndex, x, z, snapStep(useUiStore.getState().snapEnabled))
+    const r = insertPoint(getActiveRoom().points, wallIndex, x, z, snapStep(useUiStore.getState().snapEnabled))
     const err = r.ok ? commitPoints(r.value) : r.error
     if (err) notice(err)
     else set({ selectedCorner: wallIndex + 1, selectedWall: null })
@@ -149,7 +167,7 @@ export const useEditStore = create<EditState>()((set, get) => ({
   },
   deleteCorner: (i) => {
     if (isDragging() || session) return false
-    const r = deletePoint(selectRoom(useDocStore.getState()).points, i)
+    const r = deletePoint(getActiveRoom().points, i)
     const err = r.ok ? commitPoints(r.value) : r.error
     if (err) notice(err)
     else set({ selectedCorner: null, selectedWall: null })
@@ -159,7 +177,17 @@ export const useEditStore = create<EditState>()((set, get) => ({
 
 // 방이 바뀌어(Undo·불러오기·교체) 인덱스가 무효가 되면 선택을 푼다.
 useDocStore.subscribe((s) => {
+  const room = findRoom(s.rooms, useUiStore.getState().activeRoomId)
+  if (!room) return
   const e = useEditStore.getState()
-  const n = selectRoom(s).points.length
+  const n = room.points.length
   if ((e.selectedCorner ?? 0) >= n || (e.selectedWall ?? 0) >= n) e.selectCorner(null)
+})
+
+// 활성 방이 바뀌면 진행 중인 드래그를 취소하고 편집 선택을 지운다(Undo 비대상 UI 상태만 바뀐다).
+useUiStore.subscribe((s, prev) => {
+  if (s.activeRoomId === prev.activeRoomId) return
+  const e = useEditStore.getState()
+  if (e.draggingCorner !== null) e.cancelCornerDrag()
+  if (e.selectedCorner !== null || e.selectedWall !== null) e.selectCorner(null)
 })

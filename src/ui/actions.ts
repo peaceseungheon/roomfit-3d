@@ -2,7 +2,8 @@
 import { useStore } from 'zustand'
 import { isDragging } from '../scene/dragSession'
 import { findCatalog } from '../store/catalog'
-import { selectRoom, useDocStore } from '../store/useDocStore'
+import { getActiveRoom } from '../store/activeRoom'
+import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { DocData } from '../store/types'
 import { makeFixture } from './fixturePlacement'
@@ -28,7 +29,7 @@ export function addFromCatalog(modelType: string) {
   if (!entry || isDragging()) return
   const doc = useDocStore.getState()
   const { items, rooms, addItem } = doc
-  const item = makeFromCatalog(entry, rooms, selectRoom(doc), items)
+  const item = makeFromCatalog(entry, rooms, getActiveRoom(), items)
   if (addItem(item)) useUiStore.getState().select(item.id)
 }
 
@@ -37,7 +38,7 @@ export function addDimensionBox(spec: Parameters<typeof makeDimensionBox>[0]): b
   if (isDragging()) return false
   const doc = useDocStore.getState()
   const { items, rooms, addItem } = doc
-  const item = makeDimensionBox(spec, rooms, selectRoom(doc), items)
+  const item = makeDimensionBox(spec, rooms, getActiveRoom(), items)
   if (!addItem(item)) return false
   useUiStore.getState().select(item.id)
   return true
@@ -48,7 +49,7 @@ export function addFixture(modelType: string) {
   if (isDragging()) return
   const doc = useDocStore.getState()
   const { items, rooms, addItem } = doc
-  const item = makeFixture(modelType, rooms, selectRoom(doc), items)
+  const item = makeFixture(modelType, rooms, getActiveRoom(), items)
   if (item && addItem(item)) useUiStore.getState().select(item.id)
 }
 

@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { deleteSelected, importDocument, undo } from '../ui/actions'
 import { nearestWall, signedArea } from '../scene/geometry'
 import { createSample } from '../store/sample'
-import { selectRoom, useDocStore } from '../store/useDocStore'
+import { useDocStore } from '../store/useDocStore'
+import { getActiveRoom } from '../store/activeRoom'
 import { useEditStore } from '../store/useEditStore'
 import { useTraceStore } from '../store/useTraceStore'
 import { useUiStore } from '../store/useUiStore'
@@ -214,7 +215,7 @@ describe('useTraceStore', () => {
     t().addTracePoint(100, 100)
     expect(t().closeTrace()).toBe(true)
     expect(t().commitTrace(250, false)).toBe(true)
-    expect(selectRoom(useDocStore.getState()).height).toBe(250)
+    expect(getActiveRoom().height).toBe(250)
     expect(useDocStore.getState().items).toEqual([])
     expect(past()).toBe(1)
     expect(t().active).toBe(false)
@@ -239,23 +240,23 @@ describe('useTraceStore', () => {
 describe('useEditStore', () => {
   const e = useEditStore.getState
   it('드래그 1회 = Undo 1단계, 고정 요소 재배치', () => {
-    const before = selectRoom(useDocStore.getState()).points
+    const before = getActiveRoom().points
     expect(e().beginCornerDrag(1)).toBe(true)
     e().moveCorner(1, 350, 0)
     e().moveCorner(1, 300, 0)
     expect(past()).toBe(0)
     e().endCornerDrag()
-    expect(selectRoom(useDocStore.getState()).points[1]).toEqual([300, 0])
+    expect(getActiveRoom().points[1]).toEqual([300, 0])
     expect(past()).toBe(1)
     useDocStore.temporal.getState().undo()
-    expect(selectRoom(useDocStore.getState()).points).toEqual(before)
+    expect(getActiveRoom().points).toEqual(before)
   })
   it('교차하면 원위치 + 토스트, 이력 없음(AC-05-3)', () => {
-    const before = selectRoom(useDocStore.getState()).points
+    const before = getActiveRoom().points
     e().beginCornerDrag(1)
     expect(e().moveCorner(1, 400, 400)).toBe(false)
     e().endCornerDrag()
-    expect(selectRoom(useDocStore.getState()).points).toEqual(before)
+    expect(getActiveRoom().points).toEqual(before)
     expect(past()).toBe(0)
     expect(useUiStore.getState().notice).toMatch(/취소/)
   })
@@ -268,7 +269,7 @@ describe('useEditStore', () => {
   it('벽 길이 입력은 Undo 1단계, 교차면 취소', () => {
     expect(e().setWallLength(0, 250)).toBe(true)
     expect(past()).toBe(1)
-    expect(selectRoom(useDocStore.getState()).points[1][0]).toBe(250)
+    expect(getActiveRoom().points[1][0]).toBe(250)
     expect(e().setWallLength(0, 5)).toBe(false)
     expect(past()).toBe(1)
   })
@@ -285,25 +286,25 @@ describe('useEditStore', () => {
       useUiStore.setState({ selectedId: sel })
       expect(e().beginCornerDrag(1)).toBe(true)
       e().moveCorner(1, 250, 0)
-      const mid = selectRoom(useDocStore.getState())
+      const mid = getActiveRoom()
       undo()
       deleteSelected()
       importDocument({ rooms: [{ ...mid, points: [[0, 0], [100, 0], [100, 100]] }], items: [] })
-      expect(selectRoom(useDocStore.getState())).toBe(mid)
+      expect(getActiveRoom()).toBe(mid)
       expect(useDocStore.getState().items).toBe(doc.items)
       e().endCornerDrag()
-      expect(selectRoom(useDocStore.getState()).points[1]).toEqual([250, 0])
+      expect(getActiveRoom().points[1]).toEqual([250, 0])
       undo() // 풀렸다
-      expect(selectRoom(useDocStore.getState()).points[1]).toEqual([300, 0])
+      expect(getActiveRoom().points[1]).toEqual([300, 0])
     })
     it('외부 변경 후 end는 복원·커밋 없이 resume만, points 개수가 달라도 안전', () => {
       e().beginCornerDrag(1)
       e().moveCorner(1, 350, 0)
       useDocStore.getState().createPolygonRoom([[0, 0], [100, 0], [100, 100]], 230) // 가드를 우회한 외부 변경
-      const ext = selectRoom(useDocStore.getState())
+      const ext = getActiveRoom()
       const n = past()
       expect(() => e().endCornerDrag()).not.toThrow()
-      expect(selectRoom(useDocStore.getState())).toBe(ext)
+      expect(getActiveRoom()).toBe(ext)
       expect(past()).toBe(n) // 커밋 없음
       expect(useDocStore.temporal.getState().isTracking).toBe(true)
       expect(e().draggingCorner).toBeNull()
@@ -311,11 +312,11 @@ describe('useEditStore', () => {
     it('외부 변경 후 move는 세션을 끝내고, 인자 i가 다르면 무시', () => {
       e().beginCornerDrag(1)
       expect(e().moveCorner(2, 300, 300)).toBe(false) // i 불일치
-      expect(selectRoom(useDocStore.getState()).points[2]).toEqual([400, 300])
+      expect(getActiveRoom().points[2]).toEqual([400, 300])
       useDocStore.getState().createPolygonRoom([[0, 0], [100, 0], [100, 100]], 230)
-      const ext = selectRoom(useDocStore.getState())
+      const ext = getActiveRoom()
       expect(e().moveCorner(1, 50, 0)).toBe(false)
-      expect(selectRoom(useDocStore.getState())).toBe(ext)
+      expect(getActiveRoom()).toBe(ext)
       expect(e().draggingCorner).toBeNull()
       expect(useDocStore.temporal.getState().isTracking).toBe(true)
     })

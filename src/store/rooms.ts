@@ -1,7 +1,6 @@
 // 다중 방 공용 헬퍼: id·좌표 불변식·소속/천장고 판정. 1unit=1cm, 좌표 [x, z].
-import { PLAN_EXTENT_MAX } from '../io/validate'
 import { nearestWallIn, pointInPolygon } from '../scene/geometry'
-import type { DocData, Item, Point2, Room, RoomShape } from './types'
+import { PLAN_EXTENT_MAX, type DocData, type Item, type Point2, type Room, type RoomShape } from './types'
 
 /** `r(\d+)` 최대값 + 1. 그 외 id는 건너뛴다. */
 export function nextRoomId(rooms: readonly Room[]): string {

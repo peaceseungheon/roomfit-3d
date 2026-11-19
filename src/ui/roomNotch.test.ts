@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createSample } from '../store/sample'
-import { selectRoom, useDocStore } from '../store/useDocStore'
+import { useDocStore } from '../store/useDocStore'
+import { getActiveRoom } from '../store/activeRoom'
 import { formItems, formRoom, formShift, notchesError, submitRoomForm, type RoomForm } from './roomForm'
 import { applyNotches, checkNotchDraft, emptyNotchDraft, type NotchSpec } from './roomNotch'
 
@@ -48,10 +49,10 @@ describe('formRoom / submitRoomForm with notches', () => {
   it('확정은 Undo 1단계, 가구 유지/삭제 규칙 재사용', () => {
     expect(submitRoomForm(form({ notches: [cutTop], keepItems: false }))).toBe(true)
     expect(useDocStore.temporal.getState().pastStates).toHaveLength(1)
-    expect(selectRoom(useDocStore.getState()).points).toHaveLength(8)
+    expect(getActiveRoom().points).toHaveLength(8)
     expect(useDocStore.getState().items).toHaveLength(0)
     useDocStore.temporal.getState().undo()
-    expect(selectRoom(useDocStore.getState()).points).toHaveLength(4)
+    expect(getActiveRoom().points).toHaveLength(4)
     expect(useDocStore.getState().items).toHaveLength(4)
   })
   it('유효하지 않은 notches로는 확정하지 않는다', () => {

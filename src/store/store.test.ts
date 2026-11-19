@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { selectRoom, useDocStore } from './useDocStore'
+import { useDocStore } from './useDocStore'
+import { getActiveRoom } from './activeRoom'
+import { useEditStore } from './useEditStore'
 import { useUiStore } from './useUiStore'
 import { createSample } from './sample'
 import { CORRUPT_BACKUP_KEY, restoreSaved, serializeDocument, startAutoSave, STORAGE_KEY } from '../io/persist'
@@ -25,7 +27,7 @@ beforeEach(() => {
 describe('useDocStore', () => {
   it('ㄱ자는 우상단이 잘린다', () => {
     useDocStore.getState().createLRoom(400, 300, 230, 100, 80)
-    expect(selectRoom(useDocStore.getState()).points).toEqual([
+    expect(getActiveRoom().points).toEqual([
       [0, 0], [300, 0], [300, 80], [400, 80], [400, 300], [0, 300],
     ])
   })
@@ -125,10 +127,10 @@ describe('규약 강제와 거부', () => {
     expect(useDocStore.getState().pristine).toBe(true)
   })
   it('방 입력 범위 밖이면 상태 유지', () => {
-    const before = selectRoom(useDocStore.getState())
+    const before = getActiveRoom()
     expect(useDocStore.getState().createRectRoom(5000, 300, 230)).toBe(false)
     expect(useDocStore.getState().createLRoom(400, 300, 230, 400, 80)).toBe(false)
-    expect(selectRoom(useDocStore.getState())).toBe(before)
+    expect(getActiveRoom()).toBe(before)
     expect(undoCount()).toBe(0)
   })
   it('keepItems=false면 가구를 비운다', () => {
@@ -368,6 +370,66 @@ describe('활성 방 상태', () => {
     useUiStore.getState().setActiveRoomId('r2')
     useDocStore.getState().loadDocument({ rooms: [A], items: [] })
     expect(useUiStore.getState().activeRoomId).toBe('r1')
+  })
+})
+
+describe('활성 방 편집', () => {
+  const sq = (x: number): [number, number][] => [[x, 0], [x + 300, 0], [x + 300, 300], [x, 300]]
+  const A = { id: 'r1', name: '방 1', height: 230, points: sq(0) }
+  const B = { id: 'r2', name: '방 2', height: 240, points: sq(320) }
+  const past = () => useDocStore.temporal.getState().pastStates.length
+  const edit = () => useEditStore.getState()
+  const load = (items: Item[] = []) => {
+    useDocStore.getState().loadDocument({ rooms: [A, B], items })
+    useDocStore.temporal.getState().clear()
+    useUiStore.getState().setActiveRoomId('r2')
+  }
+
+  it('활성 방을 바꾸면 그 방만 편집하고, Undo로 복원된다', () => {
+    load()
+    expect(edit().setWallLength(0, 100)).toBe(true)
+    const rooms = useDocStore.getState().rooms
+    expect(rooms.find((r) => r.id === 'r1')).toBe(A)
+    expect(rooms.find((r) => r.id === 'r2')!.points[1]).toEqual([420, 0])
+    expect(past()).toBe(1)
+    useDocStore.temporal.getState().undo()
+    expect(getActiveRoom().points).toEqual(B.points)
+  })
+  it('방을 삭제하면 활성 방이 남은 방으로 해소된다', () => {
+    load()
+    expect(useDocStore.getState().removeRoom('r2')).toBe(true)
+    expect(getActiveRoom().id).toBe('r1')
+  })
+  it('다른 방과 겹치는 코너 이동은 거부하고 상태를 유지한다', () => {
+    load()
+    const before = useDocStore.getState().rooms
+    expect(edit().beginCornerDrag(0)).toBe(true)
+    expect(edit().moveCorner(0, 100, 0)).toBe(false)
+    edit().endCornerDrag()
+    expect(useDocStore.getState().rooms).toBe(before)
+    expect(past()).toBe(0)
+  })
+  it('활성 방 점을 음수로 옮기면 문서 전체 이동 + Undo 1단계', () => {
+    load([{ ...item('f'), position: [400, 0, 50] }])
+    const beforeRooms = useDocStore.getState().rooms
+    const beforeItems = useDocStore.getState().items
+    expect(edit().beginCornerDrag(0)).toBe(true)
+    expect(edit().moveCorner(0, 320, -50)).toBe(true)
+    edit().endCornerDrag()
+    const s = useDocStore.getState()
+    expect(s.rooms.find((r) => r.id === 'r1')!.points[0]).toEqual([0, 50])
+    expect(s.rooms.find((r) => r.id === 'r2')!.points[0]).toEqual([320, 0])
+    expect(s.items[0].position).toEqual([400, 0, 100])
+    expect(past()).toBe(1)
+    useDocStore.temporal.getState().undo()
+    expect(useDocStore.getState().rooms).toBe(beforeRooms)
+    expect(useDocStore.getState().items).toBe(beforeItems)
+  })
+  it('활성 방이 바뀌면 편집 선택이 풀린다', () => {
+    load()
+    edit().selectWall(1)
+    useUiStore.getState().setActiveRoomId('r1')
+    expect(edit().selectedWall).toBeNull()
   })
 })
 

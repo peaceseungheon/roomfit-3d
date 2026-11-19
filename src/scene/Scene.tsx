@@ -3,7 +3,8 @@ import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Edges, Grid, Html } from '@react-three/drei'
 import { DoubleSide, ExtrudeGeometry, Shape, ShapeGeometry, Vector2, type Vector3 } from 'three'
 import { itemLabel } from '../store/catalog'
-import { selectRoom, useDocStore } from '../store/useDocStore'
+import { useActiveRoom } from '../store/activeRoom'
+import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { Item, Point2, Room } from '../store/types'
 import {
@@ -156,7 +157,7 @@ function DoorSwingArea({ item, points, warned }: { item: Item; points: Point2[];
 }
 
 export default function Scene() {
-  const room = useDocStore(selectRoom)
+  const room = useActiveRoom()
   const items = useDocStore((s) => s.items)
   const cameraMode = useUiStore((s) => s.cameraMode)
   const warnings = useWarnings()

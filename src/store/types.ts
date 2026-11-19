@@ -49,5 +49,7 @@ export interface DocData {
 }
 
 export const DEFAULT_ROOM_ID = 'r1'
+/** 문서 전체 바운딩 박스 가로·세로 상한(cm). */
+export const PLAN_EXTENT_MAX = 10000
 /** n번째 방의 기본 이름 */
 export const defaultRoomName = (n: number): string => `방 ${n}`

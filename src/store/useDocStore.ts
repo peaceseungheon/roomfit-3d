@@ -72,15 +72,6 @@ export const rectPoints = (w: number, d: number): Room['points'] => [
 // roomForm.ts 등 기존 import 경로 유지용 re-export
 export { shiftItems }
 
-/** 3단계에서 활성 방으로 교체. 지금은 첫 방만 본다. */
-export const selectRoom = (s: DocData): Room => s.rooms[0]
-
-/** 첫 방의 height·points만 바꾼 새 rooms 배열(id·name 유지). */
-export const withFirstRoom = (rooms: Room[], { height, points }: RoomShape): Room[] => [
-  { ...rooms[0], height, points },
-  ...rooms.slice(1),
-]
-
 const clamp = (v: number, hi: number) => Math.min(Math.max(v, 1), hi)
 
 /** 규약 강제: y=0, 크기 clamp(W,D 1~1000 / H 1~500). 유한수가 아니면 null. */
