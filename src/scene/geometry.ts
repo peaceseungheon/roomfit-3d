@@ -1,9 +1,14 @@
 // 씬 순수 로직. 1unit=1cm, points는 [x, z], rotation은 도(렌더링 시점에만 라디안).
 import { DEFAULT_ELEVATION, isDimensionBox } from '../store/catalog'
-import type { Item, Point2, Room, Vec3 } from '../store/types'
+import type { Item, Point2, Room, RoomShape, Vec3 } from '../store/types'
 
 /** 벽 두께(cm). 스키마에 없어 씬 상수로 둔다. 벽은 방 points(실내 경계) 바깥쪽으로 두껍다. */
 export const WALL_THICKNESS = 10
+
+/** 방 사이 간격이 이하면 하나의 벽으로 그린다(cm). 벽 두 장 두께. */
+export const WALL_MERGE_MAX = 2 * WALL_THICKNESS
+/** 벽 렌더 최소 두께(cm). 맞닿은 방(간격 0)에서 양쪽 띠가 사라지지 않게 한다. */
+export const WALL_MIN = 0.1
 
 const DEG = Math.PI / 180
 
@@ -40,6 +45,76 @@ export function offsetOutward(points: Point2[], t: number): Point2[] {
   })
 }
 
+const EPS = 1e-9
+
+/** 변별 오프셋 마이터: 꼭짓점 앞뒤 변의 오프셋 직선이 만나는 점. 두께 배열은 변 인덱스(points[i]→points[i+1]) 기준. */
+export function offsetPerEdge(points: Point2[], t: number[]): Point2[] {
+  const n = points.length
+  const sign = Math.sign(signedArea(points))
+  const dirs = points.map((a, i): Point2 => {
+    const b = points[(i + 1) % n]
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+    return [(b[0] - a[0]) / len, (b[1] - a[1]) / len]
+  })
+  const normals = points.map((a, i) => outwardNormal(a, points[(i + 1) % n], sign))
+  return points.map((v, i) => {
+    const prev = (i - 1 + n) % n
+    const [u1, u2] = [dirs[prev], dirs[i]]
+    const [n1, n2] = [normals[prev], normals[i]]
+    const [d1, d2] = [t[prev], t[i]]
+    const denom = u1[0] * u2[1] - u1[1] * u2[0]
+    // 일직선(또는 길이 0) 변: 이전 변 오프셋만 적용
+    if (Math.abs(denom) < EPS) return [v[0] + n1[0] * d1, v[1] + n1[1] * d1]
+    const dx = d2 * n2[0] - d1 * n1[0]
+    const dz = d2 * n2[1] - d1 * n1[1]
+    const alpha = (dx * u2[1] - dz * u2[0]) / denom
+    return [v[0] + alpha * u1[0] + d1 * n1[0], v[1] + alpha * u1[1] + d1 * n1[1]]
+  })
+}
+
+/** 변 중점에서 바깥 법선 반직선이 다른 방 경계에 닿는 거리. 없으면 null. */
+function gapOutward(mid: Point2, dir: Point2, others: readonly Point2[][]): number | null {
+  let best = Infinity
+  for (const poly of others) {
+    for (let i = 0; i < poly.length; i++) {
+      const p = poly[i]
+      const q = poly[(i + 1) % poly.length]
+      const ex = q[0] - p[0]
+      const ez = q[1] - p[1]
+      const denom = dir[0] * ez - dir[1] * ex
+      if (Math.abs(denom) < EPS) continue
+      const wx = p[0] - mid[0]
+      const wz = p[1] - mid[1]
+      const u = (wx * ez - wz * ex) / denom
+      const s = (wx * dir[1] - wz * dir[0]) / denom
+      if (u >= -EPS && u <= WALL_MERGE_MAX && s >= -EPS && s <= 1 + EPS && u < best) best = u
+    }
+  }
+  return best === Infinity ? null : Math.max(best, 0)
+}
+
+/**
+ * 변마다 중점 광선으로 이웃 방까지 간격을 재고 절반(최소·최대 clamp)을 두께로 쓴다.
+ * ponytail: 변 중점 광선 하나로 변 전체 두께를 정한다. 이웃과 일부만 마주친 변(T자)은
+ * 비인접 구간까지 g/2로 얇아질 수 있고, 간격 0은 양쪽 0.1cm 띠(합 0.2cm)가 남는다.
+ * 필요해지면 이웃 코너 투영점으로 변을 분할한다.
+ */
+export function edgeThickness(points: Point2[], others: readonly Point2[][]): number[] {
+  const n = points.length
+  const sign = Math.sign(signedArea(points))
+  return points.map((a, i) => {
+    const b = points[(i + 1) % n]
+    const mid: Point2 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+    const g = gapOutward(mid, outwardNormal(a, b, sign), others)
+    return g === null ? WALL_THICKNESS : Math.min(Math.max(g / 2, WALL_MIN), WALL_THICKNESS)
+  })
+}
+
+/** 방 하나의 벽 띠 다각형(실내 경계 바깥). */
+export function wallBand(points: Point2[], others: readonly Point2[][]): Point2[] {
+  return offsetPerEdge(points, edgeThickness(points, others))
+}
+
 export interface Bounds {
   minX: number
   maxX: number
@@ -51,6 +126,23 @@ export function roomBounds(points: Point2[]): Bounds {
   const xs = points.map((p) => p[0])
   const zs = points.map((p) => p[1])
   return { minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs) }
+}
+
+/** 모든 방 점의 합집합 경계. 방이 없으면 0 경계. */
+export function roomsBounds(rooms: readonly RoomShape[]): Bounds {
+  let minX = Infinity
+  let maxX = -Infinity
+  let minZ = Infinity
+  let maxZ = -Infinity
+  for (const room of rooms) {
+    for (const [x, z] of room.points) {
+      if (x < minX) minX = x
+      if (x > maxX) maxX = x
+      if (z < minZ) minZ = z
+      if (z > maxZ) maxZ = z
+    }
+  }
+  return minX === Infinity ? { minX: 0, maxX: 0, minZ: 0, maxZ: 0 } : { minX, maxX, minZ, maxZ }
 }
 
 /** 가구 블록 변환. position은 바닥 중심, 메시 중심은 y=H/2. */
@@ -160,4 +252,13 @@ export function fixtureTransform(
     position: [x + (nx * t) / 2, sill + item.size[1] / 2, z + (nz * t) / 2],
     rotationY: w ? Math.atan2(-w.dir[1], w.dir[0]) : 0,
   }
+}
+
+/** 여러 방 중 가장 가까운 벽(호스트 방) 기준 고정 요소 변환. 방이 없으면 원위치. */
+export function fixtureTransformIn(
+  rooms: readonly Room[],
+  item: Item,
+): { position: Vec3; rotationY: number } {
+  const host = nearestWallIn(rooms, item.position[0], item.position[2])
+  return fixtureTransform(item, host ? host.room.points : [])
 }
