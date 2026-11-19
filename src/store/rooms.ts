@@ -1,4 +1,5 @@
 // 다중 방 공용 헬퍼: id·좌표 불변식·소속/천장고 판정. 1unit=1cm, 좌표 [x, z].
+import { PLAN_EXTENT_MAX } from '../io/validate'
 import { nearestWallIn, pointInPolygon } from '../scene/geometry'
 import type { DocData, Item, Point2, Room, RoomShape } from './types'
 
@@ -69,3 +70,21 @@ export const clampElevations = (items: Item[], rooms: readonly Room[]): Item[] =
         return (it.elevation ?? 0) > ceil ? { ...it, elevation: ceil } : it
       })
     : items
+
+/** CRUD 결과 문서를 저장 검증(validate.ts) 규칙에 맞춘다: elevation clamp + 문서 바운딩·가구 좌표 상한. 실패면 null. */
+export function finalizeDoc(rooms: Room[], items: Item[]): DocData | null {
+  if (rooms.length === 0) return null
+  const clamped = clampElevations(items, rooms)
+  const pts = rooms.flatMap((r) => r.points)
+  for (const axis of [0, 1] as const) {
+    const vs = pts.map((p) => p[axis])
+    if (Math.max(...vs) - Math.min(...vs) > PLAN_EXTENT_MAX) return null
+  }
+  if (clamped.some((it) => Math.abs(it.position[0]) > PLAN_EXTENT_MAX || Math.abs(it.position[2]) > PLAN_EXTENT_MAX))
+    return null
+  return { rooms, items: clamped }
+}
+
+/** 방 하나의 height·points를 교체하고 저장 유효성까지 맞춘다. 실패면 null. 평행이동은 호출부 몫. */
+export const applyRoomGeometry = (doc: DocData, id: string, shape: RoomShape): DocData | null =>
+  finalizeDoc(withRoom(doc.rooms, id, shape), doc.items)

@@ -1,18 +1,19 @@
 import { create } from 'zustand'
 import { temporal } from 'zundo'
 import { createSample } from './sample'
-import {
-  ITEM_MAX_H,
-  ITEM_MAX_WD,
-  NAME_MAX,
-  PLAN_EXTENT_MAX,
-  ROOMS_MAX,
-  validateRoom,
-  validateRoomInput,
-} from '../io/validate'
+import { ITEM_MAX_H, ITEM_MAX_WD, NAME_MAX, ROOMS_MAX, validateRoom, validateRoomInput } from '../io/validate'
 import { roomsOverlap } from '../io/roomOverlap'
 import { isDragging } from '../scene/dragSession'
-import { ceilingForItem, clampElevations, nextRoomId, planShift, shiftDocument, shiftItems, withRoom } from './rooms'
+import {
+  applyRoomGeometry,
+  ceilingForItem,
+  finalizeDoc,
+  nextRoomId,
+  planShift,
+  shiftDocument,
+  shiftItems,
+  withRoom,
+} from './rooms'
 import { DEFAULT_ROOM_ID, defaultRoomName, type DocData, type Item, type Room, type RoomShape } from './types'
 
 export const UNDO_LIMIT = 50
@@ -96,22 +97,15 @@ export function normalizeItem(it: Item, ceil: number): Item | null {
   }
 }
 
-/** 문서 전체 꼭짓점 가로·세로 폭이 PLAN_EXTENT_MAX 이하인지. */
-const withinPlanExtent = (rooms: readonly Room[]): boolean => {
-  const xs = rooms.flatMap((r) => r.points.map((p) => p[0]))
-  const zs = rooms.flatMap((r) => r.points.map((p) => p[1]))
-  return Math.max(...xs) - Math.min(...xs) <= PLAN_EXTENT_MAX && Math.max(...zs) - Math.min(...zs) <= PLAN_EXTENT_MAX
-}
-
-/** 방 하나로 문서 전체를 교체하는 공통 경로(rect/L/폴리곤). items는 keepItems일 때만 새 방 기준으로 clamp. */
+/** 방 하나로 문서 전체를 교체하는 공통 경로(rect/L/폴리곤). items는 keepItems일 때만 이동·clamp. 실패면 null. */
 const replaceWithRoom = (
-  set: (fn: (s: DocState) => Partial<DocState>) => void,
   shape: RoomShape,
+  items: Item[],
   keepItems: boolean,
   shift?: [number, number],
-) => {
+): DocData | null => {
   const room: Room = { id: DEFAULT_ROOM_ID, name: defaultRoomName(1), height: shape.height, points: shape.points }
-  set((s) => ({ rooms: [room], items: keepItems ? clampElevations(shiftItems(s.items, shift), [room]) : [], pristine: false }))
+  return finalizeDoc([room], keepItems ? shiftItems(items, shift) : [])
 }
 
 export const useDocStore = create<DocState>()(
@@ -129,8 +123,9 @@ export const useDocStore = create<DocState>()(
           if (nm.length < 1 || nm.length > NAME_MAX) return null
           if (s.rooms.some((r) => roomsOverlap(r.points, shape.points))) return null
           const rooms: Room[] = [...s.rooms, { id: nextRoomId(s.rooms), name: nm, height: shape.height, points: shape.points }]
-          if (!withinPlanExtent(rooms)) return null
-          const doc = shiftDocument({ rooms, items: s.items }, planShift(rooms))
+          const shifted = shiftDocument({ rooms, items: s.items }, planShift(rooms))
+          const doc = finalizeDoc(shifted.rooms, shifted.items)
+          if (!doc) return null
           set({ rooms: doc.rooms, items: doc.items, pristine: false })
           return rooms[rooms.length - 1].id
         },
@@ -138,7 +133,10 @@ export const useDocStore = create<DocState>()(
           if (isDragging()) return false
           const s = get()
           if (s.rooms.length <= 1 || !s.rooms.some((r) => r.id === id)) return false
-          set({ rooms: s.rooms.filter((r) => r.id !== id), pristine: false })
+          // 가구는 남기되, 소속 방 삭제로 fallback 천장고가 낮아질 수 있으니 clamp한다
+          const doc = finalizeDoc(s.rooms.filter((r) => r.id !== id), s.items)
+          if (!doc) return false
+          set({ rooms: doc.rooms, items: doc.items, pristine: false })
           return true
         },
         renameRoom: (id, name) => {
@@ -155,26 +153,38 @@ export const useDocStore = create<DocState>()(
           const s = get()
           if (!s.rooms.some((r) => r.id === id) || validateRoom(shape).length) return false
           if (s.rooms.some((r) => r.id !== id && roomsOverlap(r.points, shape.points))) return false
+          // 좌표 불변식: 새 모양이 음수 좌표를 만들면 문서 전체를 같은 양만큼 옮긴 뒤 적용한다
           const rooms = withRoom(s.rooms, id, shape)
-          const doc = shiftDocument({ rooms, items: clampElevations(s.items, rooms) }, planShift(rooms))
+          const shifted = shiftDocument({ rooms, items: s.items }, planShift(rooms))
+          const doc = applyRoomGeometry(shifted, id, {
+            height: shape.height,
+            points: shifted.rooms.find((r) => r.id === id)!.points,
+          })
+          if (!doc) return false
           set({ rooms: doc.rooms, items: doc.items, pristine: false })
           return true
         },
         createRectRoom: (w, d, height, keepItems = true) => {
           if (Object.keys(validateRoomInput({ kind: 'rect', width: w, depth: d, height })).length) return false
-          replaceWithRoom(set, { height, points: rectPoints(w, d) }, keepItems)
+          const doc = replaceWithRoom({ height, points: rectPoints(w, d) }, get().items, keepItems)
+          if (!doc) return false
+          set({ ...doc, pristine: false })
           return true
         },
         createLRoom: (w, d, height, cw, cd, keepItems = true) => {
           const input = { kind: 'L' as const, width: w, depth: d, height, cutWidth: cw, cutDepth: cd }
           if (Object.keys(validateRoomInput(input)).length) return false
-          replaceWithRoom(set, { height, points: lPoints(w, d, cw, cd) }, keepItems)
+          const doc = replaceWithRoom({ height, points: lPoints(w, d, cw, cd) }, get().items, keepItems)
+          if (!doc) return false
+          set({ ...doc, pristine: false })
           return true
         },
         createPolygonRoom: (points, height, keepItems = true, shift) => {
           const shape = { height, points }
           if (validateRoom(shape).length) return false
-          replaceWithRoom(set, shape, keepItems, shift)
+          const doc = replaceWithRoom(shape, get().items, keepItems, shift)
+          if (!doc) return false
+          set({ ...doc, pristine: false })
           return true
         },
         addItem: (item) => {

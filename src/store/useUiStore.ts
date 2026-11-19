@@ -65,6 +65,7 @@ useDocStore.subscribe((s) => {
 
 // 방 목록이 바뀌어 activeRoomId가 무효해지면 첫 방으로 해소한다(Undo 비대상)
 useDocStore.subscribe((s) => {
+  if (s.rooms.length === 0) return // 외부 입력이 빈 배열이어도 크래시하지 않는다
   const { activeRoomId, setActiveRoomId } = useUiStore.getState()
   if (!s.rooms.some((r) => r.id === activeRoomId)) setActiveRoomId(s.rooms[0].id)
 })
