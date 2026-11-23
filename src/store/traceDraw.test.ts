@@ -105,7 +105,7 @@ describe('previewPoint', () => {
     t().start()
     draw([[100, 100]])
     t().setCursor(247, 120)
-    expect(previewPoint(t())).toMatchObject({ point: [250, 100], length: 150 })
+    expect(previewPoint(t())).toEqual({ point: [250, 100], length: 150, hit: null })
   })
   it('점·커서가 없으면 null', () => {
     t().start()
