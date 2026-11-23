@@ -171,6 +171,8 @@ export function fixtureKind(modelType: string): FixtureKind | null {
 }
 
 export interface WallHit {
+  /** points[i]→points[i+1] 변 인덱스(edgeThickness·wallBand와 같은 기준) */
+  index: number
   /** 벽 시작점과 단위 방향 */
   a: Point2
   dir: Point2
@@ -198,7 +200,7 @@ export function nearestWall(points: Point2[], x: number, z: number): WallHit | n
     const dir: Point2 = [(b[0] - a[0]) / len, (b[1] - a[1]) / len]
     const s = Math.min(Math.max((x - a[0]) * dir[0] + (z - a[1]) * dir[1], 0), len)
     const dist = Math.hypot(x - (a[0] + dir[0] * s), z - (a[1] + dir[1] * s))
-    if (!best || dist < best.dist) best = { a, dir, len, s, dist, normal: outwardNormal(a, b, sign) }
+    if (!best || dist < best.dist) best = { index: i, a, dir, len, s, dist, normal: outwardNormal(a, b, sign) }
   }
   return best
 }
@@ -254,11 +256,17 @@ export function fixtureTransform(
   }
 }
 
-/** 여러 방 중 가장 가까운 벽(호스트 방) 기준 고정 요소 변환. 방이 없으면 원위치. */
+/**
+ * 여러 방 중 가장 가까운 벽(호스트 방) 기준 고정 요소 변환. 방이 없으면 원위치.
+ * 깊이는 호스트 변의 실제 벽 띠 두께(edgeThickness)를 쓴다 — 10cm 간격 이웃 벽(띠 5cm)에서
+ * 문이 벽 밖으로 떠 보이지 않게 한다.
+ */
 export function fixtureTransformIn(
   rooms: readonly Room[],
   item: Item,
 ): { position: Vec3; rotationY: number } {
   const host = nearestWallIn(rooms, item.position[0], item.position[2])
-  return fixtureTransform(item, host ? host.room.points : [])
+  if (!host) return fixtureTransform(item, [])
+  const others = rooms.filter((r) => r.id !== host.room.id).map((r) => r.points)
+  return fixtureTransform(item, host.room.points, edgeThickness(host.room.points, others)[host.wall.index])
 }

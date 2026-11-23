@@ -177,6 +177,13 @@ describe('fixtureTransformIn', () => {
     close9([t.position[0], t.position[2]], [55, 77])
     expect(t.rotationY).toBe(0)
   })
+  it('호스트 변의 실제 벽 띠 두께 중앙에 놓는다(간격 10cm 이웃 벽 2.5cm)', () => {
+    const door = fixture('DOOR_SINGLE', 390, 150)
+    // 외톨이 방: 띠 10cm → 5cm 바깥
+    expect(fixtureTransformIn([A], door).position[0]).toBeCloseTo(405)
+    // 10cm 간격 이웃 방: 띠 5cm → 2.5cm 바깥
+    expect(fixtureTransformIn([A, room(roomAt(410, 0, 710, 300), 'r2')], door).position[0]).toBeCloseTo(402.5)
+  })
 })
 
 describe('fixtureTransform', () => {

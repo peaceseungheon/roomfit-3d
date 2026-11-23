@@ -10,11 +10,12 @@ import type { Item, Point2, Room } from '../store/types'
 import {
   WALL_THICKNESS,
   fixtureKind,
-  fixtureTransform,
+  fixtureTransformIn,
   furnitureMaterialProps,
   furnitureTransform,
-  offsetOutward,
-  roomBounds,
+  nearestWallIn,
+  roomsBounds,
+  wallBand,
   type Bounds,
 } from './geometry'
 import CameraRig, { EYE_HEIGHT } from './CameraRig'
@@ -39,14 +40,16 @@ const FIXTURE_COLOR = { DOOR: '#795548', WINDOW: '#81d4fa', OUTLET: '#eeeeee' } 
 // Shape는 XY 평면. rotateX(-90°) 후 (x, -z)가 바닥 (x, z)로, 돌출 깊이가 +y로 간다.
 const toShapePts = (pts: Point2[]) => pts.map(([x, z]) => new Vector2(x, -z))
 
-function Walls({ room }: { room: Room }) {
+/** 방 하나의 벽 띠. 이웃 방과의 간격에 따라 변별 두께를 쓴다(맞닿으면 최소 띠, 20cm 이상이면 10cm). */
+function Walls({ room, rooms }: { room: Room; rooms: Room[] }) {
   const geometry = useMemo(() => {
-    const shape = new Shape(toShapePts(offsetOutward(room.points, WALL_THICKNESS)))
+    const others = rooms.filter((r) => r.id !== room.id).map((r) => r.points)
+    const shape = new Shape(toShapePts(wallBand(room.points, others)))
     shape.holes.push(new Shape(toShapePts(room.points)))
     const g = new ExtrudeGeometry(shape, { depth: room.height, bevelEnabled: false })
     g.rotateX(-Math.PI / 2)
     return g
-  }, [room])
+  }, [room, rooms])
   useEffect(() => () => geometry.dispose(), [geometry])
   return (
     <mesh geometry={geometry}>
@@ -58,13 +61,14 @@ function Walls({ room }: { room: Room }) {
 
 type Controls = { target: Vector3; update: () => void } | null
 
-/** 빈 바닥 클릭: 선택 해제. 1인칭에서는 그 지점으로 시점 이동(시선 방향 유지, AC-12-2). */
-function Floor({ points }: { points: Point2[] }) {
+/** 빈 바닥 클릭: 활성 방 전환 + 선택 해제. 1인칭에서는 그 지점으로 시점 이동(시선 방향 유지, AC-12-2). */
+function Floor({ room, active, onActivate }: { room: Room; active: boolean; onActivate: (room: Room) => void }) {
   const get = useThree((s) => s.get)
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     if (e.delta > CLICK_SLOP_PX) return
+    onActivate(room)
     const ui = useUiStore.getState()
-    if (ui.cameraMode !== 'FIRST_PERSON') return ui.select(null)
+    if (ui.cameraMode !== 'FIRST_PERSON') return
     const { camera, controls } = get()
     const c = controls as unknown as Controls
     if (!c) return
@@ -74,14 +78,14 @@ function Floor({ points }: { points: Point2[] }) {
     c.update()
   }
   const geometry = useMemo(() => {
-    const g = new ShapeGeometry(new Shape(toShapePts(points)))
+    const g = new ShapeGeometry(new Shape(toShapePts(room.points)))
     g.rotateX(-Math.PI / 2)
     return g
-  }, [points])
+  }, [room.points])
   useEffect(() => () => geometry.dispose(), [geometry])
   return (
     <mesh geometry={geometry} onClick={onClick}>
-      <meshStandardMaterial color="#d7ccc8" />
+      <meshStandardMaterial color={active ? '#e8ded9' : '#d7ccc8'} />
     </mesh>
   )
 }
@@ -110,21 +114,24 @@ function Furniture({ item, points, labelRoot, warned, showDims }: { item: Item; 
   )
 }
 
-/** 2D 벽 변 길이 라벨(AC-12-4). 변 중점에서 바깥으로 띄운다. */
-function WallDims({ room, labelRoot }: { room: Room; labelRoot: RefObject<HTMLDivElement | null> }) {
+/** 2D 벽 변 길이 라벨(AC-12-4). 변 중점에서 바깥으로 띄운다. 비활성 방은 옅게. */
+function WallDims({ room, active, labelRoot }: { room: Room; active: boolean; labelRoot: RefObject<HTMLDivElement | null> }) {
   const labels = useMemo(() => wallDimLabels(room.points), [room.points])
   return labels.map(({ at: [x, z], text }, i) => (
     <Html key={i} portal={labelRoot as RefObject<HTMLElement>} position={[x, room.height, z]} center style={{ pointerEvents: 'none' }}>
-      <span className="scene-label">{text}</span>
+      <span className={active ? 'scene-label' : 'scene-label muted'}>{text}</span>
     </Html>
   ))
 }
 
-function Fixture({ item, points, warned }: { item: Item; points: Point2[]; warned: boolean }) {
-  const { position, rotationY } = fixtureTransform(item, points)
+function Fixture({ item, rooms, points, warned }: { item: Item; rooms: Room[]; points: Point2[]; warned: boolean }) {
+  const host = nearestWallIn(rooms, item.position[0], item.position[2])
+  // 문 부채꼴·드래그 투영은 호스트 방 벽 기준. 소속 방이 없으면 활성 방 기준(기존 동작).
+  const hostPoints = host ? host.room.points : points
+  const { position, rotationY } = fixtureTransformIn(rooms, item)
   const kind = fixtureKind(item.modelType) ?? 'DOOR'
   const selected = useUiStore((s) => s.selectedId === item.id)
-  const bind = useItemDrag(item.id, points)
+  const bind = useItemDrag(item.id, hostPoints)
   // 벽보다 2cm 두껍게 해 양면에서 보이게 한다.
   return (
     <>
@@ -133,7 +140,7 @@ function Fixture({ item, points, warned }: { item: Item; points: Point2[]; warne
         <meshStandardMaterial color={warned ? WARN_COLOR : FIXTURE_COLOR[kind]} />
         {selected && <Edges color={SELECTED_COLOR} scale={1.05} />}
       </mesh>
-      {kind === 'DOOR' && <DoorSwingArea item={item} points={points} warned={warned} />}
+      {kind === 'DOOR' && <DoorSwingArea item={item} points={hostPoints} warned={warned} />}
     </>
   )
 }
@@ -157,12 +164,13 @@ function DoorSwingArea({ item, points, warned }: { item: Item; points: Point2[];
 }
 
 export default function Scene() {
-  const room = useActiveRoom()
+  const rooms = useDocStore((s) => s.rooms)
+  const active = useActiveRoom()
   const items = useDocStore((s) => s.items)
   const cameraMode = useUiStore((s) => s.cameraMode)
   const warnings = useWarnings()
   const warned = useMemo(() => warnedIds(warnings), [warnings])
-  const b = roomBounds(room.points)
+  const b = roomsBounds(rooms)
   const span = Math.max(b.maxX - b.minX, b.maxZ - b.minZ)
   const labelRoot = useRef<HTMLDivElement>(null)
   const editing = useEditStore((s) => s.editing)
@@ -182,6 +190,12 @@ export default function Scene() {
   useEffect(() => {
     if (cameraMode !== '2D') useEditStore.getState().setEditing(false)
   }, [cameraMode])
+  // 바닥 클릭: 활성 방 전환 + 선택 해제(편집 선택 정리는 useEditStore 구독이 한다)
+  const activate = (room: Room) => {
+    const ui = useUiStore.getState()
+    ui.setActiveRoomId(room.id)
+    ui.select(null)
+  }
 
   return (
     <div ref={labelRoot} className="scene-root">
@@ -197,7 +211,9 @@ export default function Scene() {
       <CameraRig mode={cameraMode} bounds={camBounds} />
       <ambientLight intensity={1.2} />
       <directionalLight position={[b.maxX + span, span * 2, b.maxZ]} intensity={1.5} />
-      <Floor points={room.points} />
+      {rooms.map((r) => (
+        <Floor key={`floor-${r.id}`} room={r} active={r.id === active.id} onActivate={activate} />
+      ))}
       <Grid
         position={[0, 0.1, 0]}
         cellSize={SNAP_CM}
@@ -207,14 +223,18 @@ export default function Scene() {
         infiniteGrid
         fadeDistance={span * 4}
       />
-      <Walls room={room} />
-      {showDims && <WallDims room={room} labelRoot={labelRoot} />}
-      {editing && cameraMode === '2D' && <CornerEditLayer room={room} />}
+      {rooms.map((r) => (
+        <Walls key={`walls-${r.id}`} room={r} rooms={rooms} />
+      ))}
+      {showDims && rooms.map((r) => (
+        <WallDims key={`dims-${r.id}`} room={r} active={r.id === active.id} labelRoot={labelRoot} />
+      ))}
+      {editing && cameraMode === '2D' && <CornerEditLayer key={active.id} room={active} />}
       {items.map((it) =>
         it.type === 'FURNITURE' ? (
-          <Furniture key={it.id} item={it} points={room.points} labelRoot={labelRoot} warned={warned.has(it.id)} showDims={showDims} />
+          <Furniture key={it.id} item={it} points={active.points} labelRoot={labelRoot} warned={warned.has(it.id)} showDims={showDims} />
         ) : (
-          <Fixture key={it.id} item={it} points={room.points} warned={warned.has(it.id)} />
+          <Fixture key={it.id} item={it} rooms={rooms} points={active.points} warned={warned.has(it.id)} />
         ),
       )}
     </Canvas>

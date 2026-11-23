@@ -101,6 +101,9 @@ button:disabled { opacity: 0.4; cursor: default; }
   user-select: none;
 }
 
+/* 비활성 방의 치수 라벨 */
+.scene-label.muted { opacity: 0.4; }
+
 .scene-dim { display: block; color: #455a64; font-size: 11px; text-align: center; }
 
 .scene-root {
