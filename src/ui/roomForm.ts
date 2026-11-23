@@ -3,7 +3,7 @@ import { ROOMS_MAX, validateRoomInput, type RoomInput, type RoomInputErrors } fr
 import { isDragging } from '../scene/dragSession'
 import { computeWarnings } from '../scene/collision'
 import { getActiveRoom } from '../store/activeRoom'
-import { placeRightOf } from '../store/rooms'
+import { placeBeside, placeRightOf, type AddSide } from '../store/rooms'
 import { lPoints, rectPoints, shiftItems, useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { Item, Point2, Room, RoomShape } from '../store/types'
@@ -19,6 +19,8 @@ export interface RoomForm {
   keepItems: boolean
   /** 사각형/ㄱ자 위에 차례로 적용한 홈·돌출(AC-03-5). 없으면 프리셋 그대로 */
   notches?: NotchSpec[]
+  /** 방 추가 시 활성 방 기준 방향. 없으면 오른쪽 */
+  side?: AddSide
 }
 
 const num = (s: string): number => (/^-?\d+$/.test(s.trim()) ? Number(s) : NaN)
@@ -79,12 +81,12 @@ export const addRoomBlockedReason = (rooms: readonly Room[]): string | null =>
 /** 방이 2개 이상이면 "새 방 만들기"는 문서 전체 교체 확인을 먼저 거친다(스펙 §5.5 진입점 구분). */
 export const needsReplaceConfirm = (rooms: readonly Room[]): boolean => rooms.length >= 2
 
-/** add 모드 확정: 활성 방 오른쪽에 방을 추가하고 새 방을 활성화한다. 실패면 null. */
+/** add 모드 확정: 활성 방 옆(f.side, 기본 오른쪽)에 방을 추가하고 새 방을 활성화한다. 실패면 null. */
 export function submitAddRoomForm(f: RoomForm): string | null {
   if (isDragging() || Object.keys(roomFormErrors(f)).length) return null
   const room = formRoom(f)
   if (!room) return null
-  const id = useDocStore.getState().addRoom({ height: room.height, points: placeRightOf(getActiveRoom(), room.points) })
+  const id = useDocStore.getState().addRoom({ height: room.height, points: placeBeside(getActiveRoom(), room.points, f.side ?? 'right') })
   if (id) useUiStore.getState().setActiveRoomId(id)
   return id
 }

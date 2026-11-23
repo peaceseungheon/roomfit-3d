@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ROOMS_MAX } from '../io/validate'
 import { getActiveRoom } from '../store/activeRoom'
+import { placeBeside } from '../store/rooms'
 import { createSample } from '../store/sample'
 import type { Point2, Room } from '../store/types'
 import { useDocStore } from '../store/useDocStore'
@@ -37,7 +38,32 @@ describe('placeRightOf', () => {
   })
 })
 
+describe('placeBeside', () => {
+  const active: Room = { id: 'r1', name: '방 1', height: 240, points: [[50, 20], [450, 20], [450, 320], [50, 320]] }
+  const pts: Point2[] = [[0, 0], [300, 0], [300, 200], [0, 200]]
+  it('left: 10cm gap before min x, top z aligned (negative x is fine)', () => {
+    expect(placeBeside(active, pts, 'left')).toEqual([[-260, 20], [40, 20], [40, 220], [-260, 220]])
+  })
+  it('down: 10cm below max z, left x aligned', () => {
+    expect(placeBeside(active, pts, 'down')).toEqual([[50, 330], [350, 330], [350, 530], [50, 530]])
+  })
+  it('up: 10cm above min z, left x aligned', () => {
+    expect(placeBeside(active, pts, 'up')).toEqual([[50, -190], [350, -190], [350, 10], [50, 10]])
+  })
+})
+
 describe('submitAddRoomForm', () => {
+  it('adds on the chosen side and keeps coordinates non-negative by shifting the document', () => {
+    const before = useDocStore.getState().rooms[0].points
+    expect(submitAddRoomForm(form({ side: 'left' }))).toBe('r2')
+    const { rooms } = useDocStore.getState()
+    const xs = rooms.flatMap((r) => r.points.map((p) => p[0]))
+    const zs = rooms.flatMap((r) => r.points.map((p) => p[1]))
+    expect(Math.min(...xs)).toBe(0)
+    expect(Math.min(...zs)).toBe(0)
+    expect(Math.max(...rooms[1].points.map((p) => p[0]))).toBeLessThan(Math.min(...rooms[0].points.map((p) => p[0])))
+    expect(rooms[0].points).not.toEqual(before)
+  })
   it('adds the room next to the active one and makes it active', () => {
     const id = submitAddRoomForm(form())
     expect(id).toBe('r2')

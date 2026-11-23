@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { RoomInputErrors } from '../io/validate'
 import { getActiveRoom } from '../store/activeRoom'
+import type { AddSide } from '../store/rooms'
 import { useDocStore } from '../store/useDocStore'
 import { useTraceStore } from '../store/useTraceStore'
 import { useUiStore } from '../store/useUiStore'
@@ -9,6 +10,13 @@ import { countOutsideFurniture, formItems, formRoom, initialRoomForm, notchesErr
 import RoomPreview from './RoomPreview'
 import NumField from './NumField'
 import NotchSection from './NotchSection'
+
+const SIDES: readonly [AddSide, string][] = [
+  ['right', '오른쪽'],
+  ['left', '왼쪽'],
+  ['up', '위'],
+  ['down', '아래'],
+]
 
 type NumKey = 'width' | 'depth' | 'height' | 'cutWidth' | 'cutDepth'
 
@@ -50,6 +58,15 @@ export default function RoomDialog({ onClose, mode = 'replace' }: Props) {
             </label>
           ))}
         </div>
+        {add && (
+          <div role="radiogroup" aria-label="추가 방향" className="row">
+            {SIDES.map(([k, label]) => (
+              <label key={k} className="radio-label">
+                <input type="radio" name="room-side" checked={(form.side ?? 'right') === k} onChange={() => setForm((f) => ({ ...f, side: k }))} /> {label}
+              </label>
+            ))}
+          </div>
+        )}
         <NumField label="가로" value={form.width} error={errors.width} onChange={set('width')} />
         <NumField label="세로" value={form.depth} error={errors.depth} onChange={set('depth')} />
         {form.kind === 'L' && (

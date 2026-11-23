@@ -95,9 +95,20 @@ export function docShiftDelta(before: readonly Room[], after: readonly Room[]): 
   return a && b ? [b[0] - a[0], b[1] - a[1]] : [0, 0]
 }
 
-/** 새 방 윤곽을 활성 방 오른쪽에 ROOM_ADD_GAP만큼 띄우고 z 시작을 맞춘 좌표. */
-export function placeRightOf(active: Room, points: Point2[]): Point2[] {
-  const dx = Math.max(...active.points.map((p) => p[0])) + ROOM_ADD_GAP - Math.min(...points.map((p) => p[0]))
-  const dz = Math.min(...active.points.map((p) => p[1])) - Math.min(...points.map((p) => p[1]))
+export type AddSide = 'right' | 'left' | 'up' | 'down'
+
+/** 새 방 윤곽을 활성 방 옆(side)에 ROOM_ADD_GAP만큼 띄우고, 나란한 축의 시작(위쪽 z 또는 왼쪽 x)을 맞춘 좌표. 음수 좌표는 addRoom이 문서째 평행이동한다. */
+export function placeBeside(active: Room, points: Point2[], side: AddSide): Point2[] {
+  const ext = (pts: Point2[], i: 0 | 1) => [Math.min(...pts.map((p) => p[i])), Math.max(...pts.map((p) => p[i]))]
+  const [ax0, ax1] = ext(active.points, 0)
+  const [az0, az1] = ext(active.points, 1)
+  const [nx0, nx1] = ext(points, 0)
+  const [nz0, nz1] = ext(points, 1)
+  const horizontal = side === 'right' || side === 'left'
+  const dx = horizontal ? (side === 'right' ? ax1 + ROOM_ADD_GAP - nx0 : ax0 - ROOM_ADD_GAP - nx1) : ax0 - nx0
+  const dz = horizontal ? az0 - nz0 : side === 'down' ? az1 + ROOM_ADD_GAP - nz0 : az0 - ROOM_ADD_GAP - nz1
   return points.map(([x, z]): Point2 => [x + dx, z + dz])
 }
+
+/** 새 방 윤곽을 활성 방 오른쪽에 붙인다(이미지 트레이싱 첫 방 등 기본 방향). */
+export const placeRightOf = (active: Room, points: Point2[]): Point2[] => placeBeside(active, points, 'right')
