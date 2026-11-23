@@ -280,7 +280,7 @@ function Dialog({ stage }: { stage?: ReactNode }) {
             </li>
           ))}
         </ol>
-        {confirmed >= 1 && <span aria-live="polite">방 {confirmed}개 확정</span>}
+        <span aria-live="polite">{confirmed >= 1 ? `방 ${confirmed}개 확정` : ''}</span>
       </header>
       <div className="trace-body">
         <div className="trace-stage" data-trace-stage>
