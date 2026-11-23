@@ -11,16 +11,22 @@ export interface PlaneHandlers {
   /** 누른 지점(cm)·히트 반경(cm)에 잡을 핸들이 있으면 true. true면 카메라 이동을 끈다 */
   grab: (p: Point2, r: number) => boolean
   /** 잡은 뒤 SLOP_PX를 넘겨 움직일 때마다. first = 첫 호출 */
-  drag: (p: Point2, first: boolean) => void
+  drag: (p: Point2, first: boolean, mods: Mods) => void
   /** 드래그를 정상 종료 */
   end: () => void
   /** 드래그 취소(pointercancel·창 포커스 상실·언마운트) */
   cancel: () => void
   /** 움직이지 않고 뗐을 때(잡은 경우 포함) */
-  click: (p: Point2, r: number) => void
+  click: (p: Point2, r: number, mods: Mods) => void
   /** 드래그 중이 아닐 때 포인터가 움직일 때마다(선택). 이벤트 단위 호출이라 프레임마다 부르지 않는다 */
-  hover?: (p: Point2) => void
+  hover?: (p: Point2, mods: Mods) => void
 }
+
+/** 포인터 이벤트의 수정키. 전역 키 리스너 없이 이벤트에서만 읽는다 */
+export interface Mods {
+  shift: boolean
+}
+const modsOf = (e: PointerEvent): Mods => ({ shift: e.shiftKey })
 
 type PEvent = ThreeEvent<PointerEvent> & { ray: Ray }
 interface Press {
@@ -78,7 +84,7 @@ export function CatchPlane({ y, handlers }: { y: number; handlers: PlaneHandlers
           const s = press.current
           if (!s?.dragging && h.current.hover) {
             const p = groundPoint(e.ray)
-            if (p) h.current.hover(p)
+            if (p) h.current.hover(p, modsOf(e.nativeEvent))
           }
           if (!s || !s.grabbed || s.id !== e.pointerId) return
           if (!s.dragging && !moved(s, e.nativeEvent)) return
@@ -87,7 +93,7 @@ export function CatchPlane({ y, handlers }: { y: number; handlers: PlaneHandlers
           e.stopPropagation()
           const first = !s.dragging
           s.dragging = true
-          h.current.drag(p, first)
+          h.current.drag(p, first, modsOf(e.nativeEvent))
         },
         onPointerUp: (e: PEvent) => {
           const s = press.current
@@ -96,7 +102,7 @@ export function CatchPlane({ y, handlers }: { y: number; handlers: PlaneHandlers
           const isClick = !s.dragging && !moved(s, e.nativeEvent)
           finish(true)
           const p = groundPoint(e.ray)
-          if (isClick && p) h.current.click(p, radius())
+          if (isClick && p) h.current.click(p, radius(), modsOf(e.nativeEvent))
         },
         onPointerCancel: () => finish(false),
         onClick: (e: ThreeEvent<MouseEvent>) => e.stopPropagation(), // 아래 바닥(선택 해제)·가구로 클릭이 가지 않게
