@@ -5,34 +5,42 @@ import { useDocStore } from '../store/useDocStore'
 import { useTraceStore } from '../store/useTraceStore'
 import { useUiStore } from '../store/useUiStore'
 import Modal from './Modal'
-import { countOutsideFurniture, formItems, formRoom, initialRoomForm, notchesError, roomFormErrors, submitRoomForm, type RoomForm } from './roomForm'
+import { countOutsideFurniture, formItems, formRoom, initialRoomForm, notchesError, roomFormErrors, submitAddRoomForm, submitRoomForm, type RoomForm } from './roomForm'
 import RoomPreview from './RoomPreview'
 import NumField from './NumField'
 import NotchSection from './NotchSection'
 
 type NumKey = 'width' | 'depth' | 'height' | 'cutWidth' | 'cutDepth'
 
-/** S-03 방 만들기. 오류가 하나라도 있으면 "만들기" 비활성(AC-03-3). */
-export default function RoomDialog({ onClose }: { onClose: () => void }) {
+interface Props {
+  onClose: () => void
+  /** replace: 문서 전체 교체(새 방 만들기). add: 기존 방·가구를 보존한 채 방 추가. */
+  mode?: 'replace' | 'add'
+}
+
+/** S-03 방 만들기 / 방 추가. 오류가 하나라도 있으면 확정 버튼 비활성(AC-03-3). */
+export default function RoomDialog({ onClose, mode = 'replace' }: Props) {
+  const add = mode === 'add'
   const items = useDocStore((s) => s.items)
-  const hasItems = items.length > 0
+  const hasItems = !add && items.length > 0
   const [form, setForm] = useState<RoomForm>(() => initialRoomForm(getActiveRoom()))
   const errors: RoomInputErrors = roomFormErrors(form)
   const staleNotches = notchesError(form)
   const invalid = Object.keys(errors).length > 0 || staleNotches !== null
   const next = formRoom(form)
-  const outside = next && form.keepItems ? countOutsideFurniture(next, formItems(form, items)) : 0
+  const outside = next && hasItems && form.keepItems ? countOutsideFurniture(next, formItems(form, items)) : 0
   const set = (k: NumKey) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
 
   const submit = (e: { preventDefault: () => void }) => {
     e.preventDefault()
     if (invalid) return
-    if (submitRoomForm(form)) onClose()
-    else useUiStore.getState().setNotice('⚠ 방을 만들지 못했습니다. 잠시 뒤 다시 시도하세요')
+    const ok = add ? submitAddRoomForm(form) !== null : submitRoomForm(form)
+    if (ok) onClose()
+    else useUiStore.getState().setNotice(add ? '⚠ 방을 추가하지 못했습니다. 잠시 뒤 다시 시도하세요' : '⚠ 방을 만들지 못했습니다. 잠시 뒤 다시 시도하세요')
   }
 
   return (
-    <Modal title="방 만들기" onClose={onClose}>
+    <Modal title={add ? '방 추가' : '방 만들기'} onClose={onClose}>
       <form onSubmit={submit} noValidate>
         <div role="radiogroup" aria-label="방 모양" className="row">
           {(['rect', 'L'] as const).map((k) => (
@@ -76,23 +84,27 @@ export default function RoomDialog({ onClose }: { onClose: () => void }) {
             <p className="hint">되돌리기(Undo)로 복구할 수 있습니다. 방 밖이 된 가구는 경고로 표시됩니다.</p>
           </fieldset>
         )}
-        <div className="row">
-          <button
-            type="button"
-            onClick={() => {
-              useTraceStore.getState().start()
-              onClose()
-            }}
-          >
-            그려서 만들기(평면도 배경 선택 가능)
-          </button>
-        </div>
+        {add ? (
+          <p className="hint">다중 방 그리기는 다음 단계에서 지원합니다</p>
+        ) : (
+          <div className="row">
+            <button
+              type="button"
+              onClick={() => {
+                useTraceStore.getState().start()
+                onClose()
+              }}
+            >
+              그려서 만들기(평면도 배경 선택 가능)
+            </button>
+          </div>
+        )}
         <div className="row end">
           <button type="button" onClick={onClose}>
             취소
           </button>
           <button type="submit" disabled={invalid}>
-            만들기
+            {add ? '추가' : '만들기'}
           </button>
         </div>
       </form>

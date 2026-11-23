@@ -36,6 +36,9 @@ button:disabled { opacity: 0.4; cursor: default; }
 .hint { color: #607d8b; font-size: 13px; }
 .catalog { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 .catalog button { width: 100%; text-align: left; }
+.room-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.room-list li { display: flex; gap: 2px; align-items: center; }
+.room-list button[aria-current='true'] { background: #263238; color: #fff; }
 .overlay { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 8px; align-items: flex-end; }
 .badge { padding: 4px 10px; border-radius: 4px; background: #fff; border: 1px solid #cfd8dc; font-size: 14px; }
 .badge.warn { background: #ffebee; border-color: #c62828; color: #b71c1c; }

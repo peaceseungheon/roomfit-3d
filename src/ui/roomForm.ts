@@ -1,8 +1,10 @@
 // S-03 방 만들기 폼: 문자열 입력 -> validateRoomInput 연결, 확정은 Undo 1단계(스토어 set 1회).
-import { validateRoomInput, type RoomInput, type RoomInputErrors } from '../io/validate'
+import { ROOMS_MAX, validateRoomInput, type RoomInput, type RoomInputErrors } from '../io/validate'
 import { isDragging } from '../scene/dragSession'
 import { computeWarnings } from '../scene/collision'
+import { getActiveRoom } from '../store/activeRoom'
 import { lPoints, rectPoints, shiftItems, useDocStore } from '../store/useDocStore'
+import { useUiStore } from '../store/useUiStore'
 import type { Item, Point2, Room, RoomShape } from '../store/types'
 import { applyNotches, applyNotchesShifted, type NotchSpec } from './roomNotch'
 
@@ -64,6 +66,33 @@ export function submitRoomForm(f: RoomForm): boolean {
   return f.kind === 'L'
     ? createLRoom(i.width, i.depth, i.height, i.cutWidth as number, i.cutDepth as number, f.keepItems)
     : createRectRoom(i.width, i.depth, i.height, f.keepItems)
+}
+
+/** 방 추가 간격(cm). 벽 두께와 같아 두 방의 벽 띠가 하나로 보인다. */
+export const ROOM_ADD_GAP = 10
+
+/** "방 추가"가 막히는 이유. 추가할 수 있으면 null. */
+export const addRoomBlockedReason = (rooms: readonly Room[]): string | null =>
+  rooms.length >= ROOMS_MAX ? `방은 최대 ${ROOMS_MAX}개까지 추가할 수 있습니다` : null
+
+/** 방이 2개 이상이면 "새 방 만들기"는 문서 전체 교체 확인을 먼저 거친다(스펙 §5.5 진입점 구분). */
+export const needsReplaceConfirm = (rooms: readonly Room[]): boolean => rooms.length >= 2
+
+/** 새 방 윤곽을 활성 방 오른쪽에 ROOM_ADD_GAP만큼 띄우고 z 시작을 맞춘 좌표. */
+export function placeRightOf(active: Room, points: Point2[]): Point2[] {
+  const dx = Math.max(...active.points.map((p) => p[0])) + ROOM_ADD_GAP - Math.min(...points.map((p) => p[0]))
+  const dz = Math.min(...active.points.map((p) => p[1])) - Math.min(...points.map((p) => p[1]))
+  return points.map(([x, z]): Point2 => [x + dx, z + dz])
+}
+
+/** add 모드 확정: 활성 방 오른쪽에 방을 추가하고 새 방을 활성화한다. 실패면 null. */
+export function submitAddRoomForm(f: RoomForm): string | null {
+  if (isDragging() || Object.keys(roomFormErrors(f)).length) return null
+  const room = formRoom(f)
+  if (!room) return null
+  const id = useDocStore.getState().addRoom({ height: room.height, points: placeRightOf(getActiveRoom(), room.points) })
+  if (id) useUiStore.getState().setActiveRoomId(id)
+  return id
 }
 
 /** 폼 입력이 유효하면 확정 시 만들어질 방 윤곽. 유효하지 않으면 null(미리보기·방 밖 개수 안내용). */
