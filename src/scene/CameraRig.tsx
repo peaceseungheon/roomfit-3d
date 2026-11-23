@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { OrbitControls, OrthographicCamera, PerspectiveCamera } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import { MOUSE, TOUCH } from 'three'
 import type { CameraMode } from '../store/useUiStore'
 import type { Point2 } from '../store/types'
 import type { Bounds } from './geometry'
+import { nextEyeSeed } from './cameraSeed'
 
 /** 1인칭 눈높이(cm), AC-12-2 */
 export const EYE_HEIGHT = 160
@@ -14,9 +16,17 @@ export const EYE_HEIGHT = 160
  * - QUARTER: 대각선 위 원근, 궤도 회전.
  * - FIRST_PERSON: 눈높이 고정. 1cm 앞 target을 도는 방식으로 드래그 = 시선 회전. 위치 이동은 Floor 클릭.
  * 2D·QUARTER는 문서 전체 bounds 중앙, FIRST_PERSON 시작점은 활성 방 bounds 중앙(eye).
+ * eye는 FIRST_PERSON 진입 시점의 시작 위치일 뿐, 1인칭 중 활성 방 변경으로 카메라를 옮기지 않는다.
  */
 export default function CameraRig({ mode, bounds: b, eye }: { mode: CameraMode; bounds: Bounds; eye: Point2 }) {
   const size = useThree((s) => s.size)
+  // eye 시드는 모드 전환 시에만 갱신한다(React 권장 "렌더 중 이전 값 비교로 상태 조정" 패턴).
+  const [seed, setSeed] = useState(eye)
+  const [prevMode, setPrevMode] = useState(mode)
+  if (mode !== prevMode) {
+    setPrevMode(mode)
+    setSeed(nextEyeSeed(mode, prevMode, eye, seed))
+  }
   const cx = (b.minX + b.maxX) / 2
   const cz = (b.minZ + b.maxZ) / 2
   const span = Math.max(b.maxX - b.minX, b.maxZ - b.minZ, 1)
@@ -46,7 +56,7 @@ export default function CameraRig({ mode, bounds: b, eye }: { mode: CameraMode; 
     )
   }
   if (mode === 'FIRST_PERSON') {
-    const [ex, ez] = eye
+    const [ex, ez] = seed
     return (
       <>
         <PerspectiveCamera key="cam-fp" makeDefault fov={70} near={1} far={20000} position={[ex, EYE_HEIGHT, ez]} />
