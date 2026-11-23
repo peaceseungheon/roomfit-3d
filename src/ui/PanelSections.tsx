@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { FIXTURE_CATALOG } from '../store/catalog'
-import type { Room } from '../store/types'
 import { useDocStore } from '../store/useDocStore'
 import { useEditStore } from '../store/useEditStore'
 import { useUiStore } from '../store/useUiStore'
@@ -8,6 +7,7 @@ import { addFixture } from './actions'
 import ConfirmDialog from './ConfirmDialog'
 import RoomDialog from './RoomDialog'
 import RoomList from './RoomList'
+import { needsReplaceConfirm } from './roomForm'
 
 /** S-05 고정 요소 4종. 벽 클릭 대신 버튼으로 가장 긴 벽 빈 구간 중앙에 추가한다. */
 export function FixtureList() {
@@ -25,9 +25,6 @@ export function FixtureList() {
     </section>
   )
 }
-
-/** 방이 2개 이상이면 "새 방 만들기"는 문서 전체 교체 확인을 먼저 거친다(스펙 §5.5 진입점 구분). */
-export const needsReplaceConfirm = (rooms: readonly Room[]): boolean => rooms.length >= 2
 
 export function RoomSection() {
   const [open, setOpen] = useState(false)

@@ -1,18 +1,15 @@
 // S-04 방 목록: 활성 방 선택·이름 변경·삭제·추가. 방이 1개면 이름 + 추가 버튼 한 줄로 접는다.
 import { useState } from 'react'
-import { NAME_MAX, ROOMS_MAX } from '../io/validate'
+import { NAME_MAX } from '../io/validate'
 import { useActiveRoomId } from '../store/activeRoom'
 import type { Room } from '../store/types'
 import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import ConfirmDialog from './ConfirmDialog'
+import { addRoomBlockedReason } from './roomForm'
 import RoomDialog from './RoomDialog'
 
-const ADD_LIMIT_TEXT = `방은 최대 ${ROOMS_MAX}개까지 추가할 수 있습니다`
 const notice = (m: string) => useUiStore.getState().setNotice(m)
-
-/** "방 추가"가 막히는 이유. 추가할 수 있으면 null. */
-export const addRoomBlockedReason = (rooms: readonly Room[]): string | null => (rooms.length >= ROOMS_MAX ? ADD_LIMIT_TEXT : null)
 
 export default function RoomList() {
   const rooms = useDocStore((s) => s.rooms)

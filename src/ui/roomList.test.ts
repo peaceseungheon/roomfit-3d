@@ -7,10 +7,9 @@ import { createSample } from '../store/sample'
 import type { Point2, Room } from '../store/types'
 import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
-import { needsReplaceConfirm } from './PanelSections'
 import RoomDialog from './RoomDialog'
-import RoomList, { addRoomBlockedReason } from './RoomList'
-import { ROOM_ADD_GAP, placeRightOf, submitAddRoomForm, type RoomForm } from './roomForm'
+import RoomList from './RoomList'
+import { ROOM_ADD_GAP, addRoomBlockedReason, needsReplaceConfirm, placeRightOf, submitAddRoomForm, type RoomForm } from './roomForm'
 
 const reset = () => {
   useDocStore.setState({ ...createSample(), pristine: true })
