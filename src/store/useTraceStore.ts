@@ -4,14 +4,16 @@
 // 이미지는 평면 (0,0)부터 가로 w*displayScale, 세로(=z) h*displayScale cm로 놓는다(trace/trace.ts imageRect).
 import { create } from 'zustand'
 import { snap, snapStep } from '../scene/interaction'
-import { BLANK_EXTENT, deletePoint, drawPoint, insertPoint, pointFromLength } from '../trace/draw'
+import { deletePoint, drawPoint, insertPoint, pointFromLength } from '../trace/draw'
 import { canClose, closePolygon, cmToPx, findIntersections, computeScale, IMAGE_MAX_PIXELS, pxToCm, TRACE_DEFAULT_HEIGHT, validateImage } from '../trace/trace'
 import { loadPixels } from '../trace/suggest/pixels'
 import { runSuggest, type SuggestHandle } from '../trace/suggest/run'
 import type { Point2 } from './types'
+import { blankArea, clampArea, ghostRooms } from './traceSession'
 import { useDocStore } from './useDocStore'
 import { useUiStore } from './useUiStore'
 
+export type TraceMode = 'replace' | 'add'
 export type TraceStep = 'upload' | 'baseline' | 'corners' | 'closed'
 
 export interface TraceImage {
@@ -23,6 +25,18 @@ export interface TraceImage {
 
 interface TraceState {
   active: boolean
+  /** replace: 문서 전체 교체(첫 방 확정 전), add: 기존 방을 보존하고 추가 */
+  mode: TraceMode
+  /** 평면 cm -> 문서 cm 이동량(doc = round(plane + offset)). replace 첫 확정 전·add+이미지 첫 방 전에는 null */
+  offset: Point2 | null
+  /** 이 세션에서 확정한 방 수. 1 이상이면 이미지·축척·기준선·start가 잠긴다 */
+  confirmed: number
+  /** 마지막으로 확정한 천장고(다음 방 기본값) */
+  lastHeight: number
+  /** 이웃 방 스냅 사용 여부(체크박스) */
+  neighborSnap: boolean
+  /** Shift를 누른 채 움직이는 중(이웃 스냅 임시 해제) */
+  free: boolean
   image: TraceImage | null
   /** 기준선 두 점(이미지 px). 길이 0~2 */
   baseline: Point2[]
@@ -49,12 +63,13 @@ interface TraceState {
   /** 닫힌 뒤 선택한 점(corners 인덱스). [점 삭제] 대상. Undo 비대상 */
   selected: number | null
 
-  start: () => void
+  start: (mode?: TraceMode) => void
+  setNeighborSnap: (on: boolean) => void
   cancel: () => void
   setOrtho: (on: boolean) => void
   clearLengthError: () => void
   /** 포인터 위치 갱신(null이면 해제). 마지막 위치는 포인터가 캔버스를 벗어나도 남겨 둔다 */
-  setCursor: (x: number, z: number) => void
+  setCursor: (x: number, z: number, free?: boolean) => void
   /** 직전 점에서 길이(cm)만큼 떨어진 곳에 점 추가. 방향은 dir(cm 위치) > cursor > 오른쪽. 직각이면 가까운 축. 실패 시 lengthError + false */
   addTracePointByLength: (len: number, dir?: Point2) => boolean
   /** 닫힌 뒤 벽 wallIndex(corners[i]->corners[i+1]) 위에 점 추가. 닫힌 상태가 유지되고 pendingRoom을 다시 계산. 실패 시 error + false */
@@ -93,6 +108,12 @@ interface TraceState {
 
 const initial = {
   active: false,
+  mode: 'replace' as TraceMode,
+  offset: null as Point2 | null,
+  confirmed: 0,
+  lastHeight: TRACE_DEFAULT_HEIGHT,
+  neighborSnap: true,
+  free: false,
   image: null,
   baseline: [] as Point2[],
   scale: null,
@@ -129,7 +150,9 @@ export function traceStep(s: Pick<TraceState, 'image' | 'scale' | 'closed'>): Tr
 export const selectIsBlank = (s: Pick<TraceState, 'image' | 'scale'>) => s.image === null && s.scale !== null
 
 const EPS = 1e-6
-export const clampBlank = (v: number) => Math.min(Math.max(v, 0), BLANK_EXTENT)
+
+/** 현재 세션의 빈 캔버스 그림 영역(고스트가 있으면 그만큼 넓다) */
+const areaOf = (s: Pick<TraceState, 'offset'>) => blankArea(ghostRooms(s, useDocStore.getState().rooms))
 
 const decode = (url: string) =>
   new Promise<{ width: number; height: number }>((resolve, reject) => {
@@ -158,12 +181,14 @@ export const SUGGEST_FAIL_NOTICE = '⚠ 윤곽을 읽지 못했습니다. 직접
 
 export const useTraceStore = create<TraceState>()((set, get) => ({
   ...initial,
-  start: () => {
+  start: (mode = 'replace') => {
+    if (get().confirmed > 0) return
     loadSeq++
     abortSuggest()
     revoke(get().image)
-    set({ ...blankState })
+    set({ ...blankState, mode, offset: mode === 'add' ? [0, 0] : null })
   },
+  setNeighborSnap: (neighborSnap) => set({ neighborSnap }),
   cancel: () => {
     loadSeq++
     abortSuggest()
@@ -171,6 +196,7 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     set({ ...initial })
   },
   loadImageFile: async (file) => {
+    if (get().confirmed > 0) return false // 잠금: objectURL을 만들기 전에 거부
     const err = validateImage(file)
     if (err) {
       useUiStore.getState().setNotice(`⚠ ${err}`)
@@ -200,15 +226,26 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     }
   },
   setImage: (img) => {
+    const s = get()
+    if (s.confirmed > 0) return
     abortSuggest()
-    const prev = get().image
-    if (prev && prev.url !== img.url) revoke(prev)
-    // 새 이미지는 축척·점이 무의미하므로 처음부터 다시 시작한다.
-    set({ ...initial, active: true, image: img, ortho: get().ortho })
+    if (s.image && s.image.url !== img.url) revoke(s.image)
+    // 새 이미지는 축척·점이 무의미하므로 처음부터 다시 시작한다. 세션 필드는 유지하되 add + 이미지는 문서 원점과 무관하므로 offset을 비운다.
+    set({
+      ...initial,
+      active: true,
+      image: img,
+      ortho: s.ortho,
+      mode: s.mode,
+      offset: s.mode === 'add' ? null : s.offset,
+      confirmed: s.confirmed,
+      neighborSnap: s.neighborSnap,
+      lastHeight: s.lastHeight,
+    })
   },
   setBaselinePoint: (i, x, z) => {
     const s = get()
-    if (!s.image || !Number.isFinite(x) || !Number.isFinite(z)) return
+    if (s.confirmed > 0 || !s.image || !Number.isFinite(x) || !Number.isFinite(z)) return
     const px = cmToPx([x, z], displayScale(s))
     const base = i === 0 ? [px, ...s.baseline.slice(1)] : [s.baseline[0] ?? px, px]
     // 기준선을 다시 찍으면 축척을 무효화한다(점 위치와 축척이 어긋나지 않게).
@@ -235,7 +272,7 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     const last = s.corners[s.corners.length - 1]
     const prev = last ? pxToCm(last, s.scale) : null
     let p = drawPoint(prev, [x, z], s.ortho, step) // 직각 보정 -> 스냅 순서(trace/draw.ts)
-    if (selectIsBlank(s)) p = [clampBlank(p[0]), clampBlank(p[1])]
+    if (selectIsBlank(s)) p = clampArea(p, areaOf(s))
     if (prev && Math.abs(p[0] - prev[0]) < EPS && Math.abs(p[1] - prev[1]) < EPS) {
       set({ error: { message: '직전 점과 같은 위치입니다. 다른 곳을 눌러 주세요', crossings: [] } }) // 길이 0 선분
       return false
@@ -246,8 +283,8 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
   setOrtho: (ortho) => set({ ortho, lengthError: null }),
   clearLengthError: () => set({ lengthError: null }),
   selectTracePoint: (i) => set({ selected: i !== null && get().corners[i] ? i : null }),
-  setCursor: (x, z) => {
-    if (Number.isFinite(x) && Number.isFinite(z)) set({ cursor: [x, z] })
+  setCursor: (x, z, free = false) => {
+    if (Number.isFinite(x) && Number.isFinite(z)) set({ cursor: [x, z], free })
   },
   addTracePointByLength: (len, dir) => {
     const s = get()
@@ -259,7 +296,11 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     const r = pointFromLength(prev, dir ?? s.cursor ?? [prev[0] + 1, prev[1]], len, s.ortho)
     if (!r.ok) return fail(r.error)
     const p = r.value
-    if (selectIsBlank(s) && p.some((v) => v < 0 || v > BLANK_EXTENT)) return fail(`그림 영역(0~${BLANK_EXTENT}cm)을 벗어납니다. 방향을 바꿔 보세요`)
+    if (selectIsBlank(s)) {
+      const a = areaOf(s)
+      if (p[0] < a.minX || p[0] > a.maxX || p[1] < a.minZ || p[1] > a.maxZ)
+        return fail(`그림 영역(${a.minX}~${a.maxX}, ${a.minZ}~${a.maxZ}cm)을 벗어납니다. 방향을 바꿔 보세요`)
+    }
     set({ corners: [...s.corners, cmToPx(p, s.scale)], error: null, lengthError: null })
     return true
   },
@@ -281,7 +322,8 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     const s = get()
     if (s.scale === null || !s.corners[i] || !Number.isFinite(x) || !Number.isFinite(z)) return
     const step = snapStep(useUiStore.getState().snapEnabled)
-    const q: Point2 = selectIsBlank(s) ? [clampBlank(snap(x, step)), clampBlank(snap(z, step))] : [snap(x, step), snap(z, step)]
+    const sp: Point2 = [snap(x, step), snap(z, step)]
+    const q: Point2 = selectIsBlank(s) ? clampArea(sp, areaOf(s)) : sp
     set({
       corners: s.corners.map((p, k) => (k === i ? cmToPx(q, s.scale!) : p)),
       closed: false,
@@ -296,7 +338,7 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
   },
   reopenTrace: () => set({ closed: false, pendingRoom: null, error: null, selected: null }),
   redoBaseline: () => {
-    if (!get().image) return // 빈 캔버스는 기준선이 없다
+    if (!get().image || get().confirmed > 0) return // 빈 캔버스는 기준선이 없다
     set({ baseline: [], scale: null, baselineError: null, closed: false, pendingRoom: null, error: null })
   },
   requestSuggest: async () => {
@@ -376,12 +418,12 @@ function reclose(cm: Point2[]): boolean {
 }
 
 /** 다음 점 미리보기(cm): 직각 보정·스냅 적용 후 위치와 직전 점부터의 길이. 점이 없거나 커서가 없으면 null. 훅 셀렉터로 직접 쓰지 말고 useMemo로 감싼다 */
-export function previewPoint(s: Pick<TraceState, 'image' | 'corners' | 'scale' | 'cursor' | 'ortho' | 'closed'>): { point: Point2; length: number } | null {
+export function previewPoint(s: Pick<TraceState, 'image' | 'corners' | 'scale' | 'cursor' | 'ortho' | 'closed'> & Partial<Pick<TraceState, 'offset' | 'neighborSnap' | 'free'>>): { point: Point2; length: number } | null {
   if (s.closed || s.scale === null || !s.cursor || s.corners.length === 0) return null
   const prev = pxToCm(s.corners[s.corners.length - 1], s.scale)
   const step = snapStep(useUiStore.getState().snapEnabled)
   let point = drawPoint(prev, s.cursor, s.ortho, step)
-  if (selectIsBlank(s)) point = [clampBlank(point[0]), clampBlank(point[1])] // addTracePoint와 같은 가장자리 맞춤
+  if (selectIsBlank(s)) point = clampArea(point, areaOf({ offset: s.offset ?? null })) // addTracePoint와 같은 가장자리 맞춤
   return { point, length: Math.hypot(point[0] - prev[0], point[1] - prev[1]) }
 }
 

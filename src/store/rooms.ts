@@ -88,6 +88,13 @@ export function finalizeDoc(rooms: Room[], items: Item[]): DocData | null {
 export const applyRoomGeometry = (doc: DocData, id: string, shape: RoomShape): DocData | null =>
   finalizeDoc(withRoom(doc.rooms, id, shape), doc.items)
 
+/** 방 확정 전후 문서가 이동한 양(`rooms[0].points[0]` 차이). 기존 방은 이동량만큼만 바뀐다. */
+export function docShiftDelta(before: readonly Room[], after: readonly Room[]): Point2 {
+  const a = before[0]?.points[0]
+  const b = after[0]?.points[0]
+  return a && b ? [b[0] - a[0], b[1] - a[1]] : [0, 0]
+}
+
 /** 새 방 윤곽을 활성 방 오른쪽에 ROOM_ADD_GAP만큼 띄우고 z 시작을 맞춘 좌표. */
 export function placeRightOf(active: Room, points: Point2[]): Point2[] {
   const dx = Math.max(...active.points.map((p) => p[0])) + ROOM_ADD_GAP - Math.min(...points.map((p) => p[0]))
