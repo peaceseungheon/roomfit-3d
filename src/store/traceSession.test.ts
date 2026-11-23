@@ -252,3 +252,67 @@ describe('겹침 닫기와 취소', () => {
     expect(t().active).toBe(false)
   })
 })
+
+// ---- Task 5: placePoint (이웃 스냅 연결) ----
+import { previewPoint } from './useTraceStore'
+
+describe('placePoint 연결', () => {
+  const addMode = () => {
+    useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
+    t().start('add')
+  }
+  it('첫 점은 이웃 링 변에 붙고 free·체크 해제면 격자만', () => {
+    addMode()
+    expect(t().addTracePoint(322, 104)).toBe(true)
+    expect(t().corners[0]).toEqual([310, 100])
+    t().cancel(); addMode()
+    t().addTracePoint(322, 104, true)
+    expect(t().corners[0]).toEqual([320, 100])
+    t().cancel(); addMode()
+    t().setNeighborSnap(false)
+    t().addTracePoint(322, 104)
+    expect(t().corners[0]).toEqual([320, 100])
+  })
+  it('previewPoint는 첫 점과 이후 점 모두 hit을 주고 확정 점과 같다', () => {
+    addMode()
+    t().setCursor(322, 104)
+    const first = previewPoint(t())!
+    expect(first.length).toBeNull()
+    expect(first.hit?.kind).toBe('edge')
+    t().addTracePoint(322, 104)
+    expect(t().corners[0]).toEqual(first.point)
+    t().setOrtho(false)
+    t().setCursor(316, 150)
+    const next = previewPoint(t())!
+    expect(next.hit?.kind).toBe('edge')
+    expect(next.length).not.toBeNull()
+    t().addTracePoint(316, 150)
+    expect(t().corners[1]).toEqual(next.point)
+  })
+  it('previewPoint는 닫힘·축척 없음·커서 없음이면 null', () => {
+    addMode()
+    expect(previewPoint(t())).toBeNull()
+    t().setCursor(5, 5)
+    expect(previewPoint({ ...t(), closed: true })).toBeNull()
+    expect(previewPoint({ ...t(), scale: null })).toBeNull()
+  })
+  it('moveTracePoint는 직각 보정 없이 이웃·격자 스냅', () => {
+    addMode()
+    t().addTracePoint(500, 500)
+    t().addTracePoint(700, 500)
+    t().moveTracePoint(1, 322, 104)
+    expect(t().corners[1]).toEqual([310, 100])
+    t().moveTracePoint(1, 713, 524, true)
+    expect(t().corners[1]).toEqual([710, 520])
+  })
+  it('replace 첫 방(고스트 없음)은 기존 격자 결과', () => {
+    t().start()
+    t().addTracePoint(322, 104)
+    expect(t().corners[0]).toEqual([320, 100])
+  })
+  it('빈 캔버스 영역 밖은 blankArea로 clamp', () => {
+    addMode()
+    t().addTracePoint(9000, -9000)
+    expect(t().corners[0]).toEqual([3300, -3000])
+  })
+})

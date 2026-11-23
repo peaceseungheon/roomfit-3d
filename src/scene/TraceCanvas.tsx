@@ -5,6 +5,7 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { Grid, Html } from '@react-three/drei'
 import { SRGBColorSpace, TextureLoader, type Texture } from 'three'
 import { baselineCm, cornersCm, displayScale, previewPoint, selectIsBlank, traceStep, useTraceStore } from '../store/useTraceStore'
+import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import { BLANK_EXTENT } from '../trace/draw'
 import { findIntersections, imageRect } from '../trace/trace'
@@ -136,16 +137,20 @@ function Preview({ labelRoot }: { labelRoot: RefObject<HTMLDivElement | null> })
   const ortho = useTraceStore((s) => s.ortho)
   const closed = useTraceStore((s) => s.closed)
   const image = useTraceStore((s) => s.image)
+  const offset = useTraceStore((s) => s.offset)
+  const neighborSnap = useTraceStore((s) => s.neighborSnap)
+  const free = useTraceStore((s) => s.free)
+  const rooms = useDocStore((s) => s.rooms) // previewPoint가 고스트를 문서에서 읽는다
   const snapEnabled = useUiStore((s) => s.snapEnabled) // previewPoint가 내부에서 읽는 스냅 설정. 바뀌면 다시 계산
   const line = useMemo(() => {
     void snapEnabled
-    const pv = previewPoint({ image, corners, scale, cursor, ortho, closed }) // 빈 캔버스 가장자리 맞춤은 previewPoint가 한다
-    if (!pv || scale === null) return null
+    void rooms
+    const pv = previewPoint({ image, corners, scale, cursor, ortho, closed, offset, neighborSnap, free }) // 빈 캔버스 가장자리 맞춤은 previewPoint가 한다
+    if (!pv || pv.length === null || scale === null) return null // 첫 점 미리보기(마커)는 Task 7
     const to: Point2 = pv.point
     const from = cornersCm({ corners: corners.slice(-1), scale })[0]
-    const len = Math.hypot(to[0] - from[0], to[1] - from[1])
-    return { pts: [from, to] as Point2[], len, mid: [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2] as Point2 }
-  }, [image, corners, scale, cursor, ortho, closed, snapEnabled])
+    return { pts: [from, to] as Point2[], len: pv.length, mid: [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2] as Point2 }
+  }, [image, corners, scale, cursor, ortho, closed, offset, neighborSnap, free, rooms, snapEnabled])
   if (!line) return null
   return (
     <>
