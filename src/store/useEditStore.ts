@@ -7,7 +7,7 @@ import { roomsOverlap } from '../io/roomOverlap'
 import { isDragging } from '../scene/dragSession'
 import { snapStep } from '../scene/interaction'
 import { deletePoint, insertPoint } from '../trace/draw'
-import { editError, movePoint, relocateFixtures, setWallLength as wallLengthPoints } from '../trace/trace'
+import { editError, movePoint, OVERLAP_MESSAGE, relocateFixtures, setWallLength as wallLengthPoints } from '../trace/trace'
 import { findRoom, getActiveRoom } from './activeRoom'
 import { lockDoc, unlockDoc } from './dragLock'
 import { applyRoomGeometry, planShift, shiftDocument, withRoom } from './rooms'
@@ -71,7 +71,7 @@ function commitPoints(points: Point2[]): string | null {
   const active = getActiveRoom()
   const err = editError(points)
   if (err) return err
-  if (doc.rooms.some((r) => r.id !== active.id && roomsOverlap(r.points, points))) return '다른 방과 겹칩니다'
+  if (doc.rooms.some((r) => r.id !== active.id && roomsOverlap(r.points, points))) return OVERLAP_MESSAGE
   const rooms = withRoom(doc.rooms, active.id, { height: active.height, points })
   const re = relocateFixtures(rooms, doc.items)
   // 좌표 불변식: 음수 좌표가 생기면 방·가구를 같은 양만큼 옮긴다(같은 Undo 단계)

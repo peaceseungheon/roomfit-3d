@@ -5,6 +5,9 @@ import type { Item, Point2, Room, RoomShape, Vec3 } from '../store/types'
 /** 벽 두께(cm). 스키마에 없어 씬 상수로 둔다. 벽은 방 points(실내 경계) 바깥쪽으로 두껍다. */
 export const WALL_THICKNESS = 10
 
+/** 방 추가 간격(cm). 벽 두께와 같아 두 방의 벽 띠가 하나로 보인다. */
+export const ROOM_ADD_GAP = WALL_THICKNESS
+
 /** 방 사이 간격이 이하면 하나의 벽으로 그린다(cm). 벽 두 장 두께. */
 export const WALL_MERGE_MAX = 2 * WALL_THICKNESS
 /** 벽 렌더 최소 두께(cm). 맞닿은 방(간격 0)에서 양쪽 띠가 사라지지 않게 한다. */

@@ -17,11 +17,13 @@ import {
   IMAGE_MAX_BYTES,
   imageRect,
   movePoint,
+  OVERLAP_MESSAGE,
   notchWall,
   pxToCm,
   relocateFixtures,
   segmentsTouch,
   setWallLength,
+  toDocPoints,
   validateImage,
 } from './trace'
 
@@ -523,5 +525,50 @@ describe('notchWall 경계(벽 시작/끝에 닿는 홈·돌출)', () => {
     expect(signedArea(ok(notchWall(rect, 1, 0, 100, 50, 'bump')))).toBeCloseTo(400 * 300 + 100 * 50)
     expect(signedArea(ok(notchWall(rect, 1, 200, 100, 50, 'bump')))).toBeCloseTo(400 * 300 + 100 * 50)
     expect(ok(notchWall(rect, 1, 0, 300, 50, 'bump'))).toHaveLength(6)
+  })
+})
+
+describe('toDocPoints / closePolygon(frame)', () => {
+  const r1: Point2[] = [[0, 0], [300, 0], [300, 200], [0, 200]]
+  const close = (pts: Point2[], others: Point2[][] = [r1], offset: Point2 = [0, 0]) => closePolygon(pts, { offset, others })
+
+  it('offset을 더하고 반올림하며 min 정규화는 하지 않는다', () => {
+    expect(toDocPoints([[100, 100], [400, 100], [400, 300], [100, 300]], [-100, -100])).toEqual([[0, 0], [300, 0], [300, 200], [0, 200]])
+    expect(toDocPoints([[0.4, 0.6], [10.4, 0.6], [10.4, 10.6]], [0, 0])).toEqual([[0, 1], [10, 1], [10, 11]])
+    expect(toDocPoints([[-5, -5], [5, -5], [5, 5]], [0, 0])[0]).toEqual([-5, -5])
+  })
+
+  it('시계 방향 입력은 CCW로 뒤집힌다(점 순서 고정)', () => {
+    expect(toDocPoints([[100, 100], [100, 300], [400, 300], [400, 100]], [-100, -100])).toEqual([[300, 0], [300, 200], [0, 200], [0, 0]])
+  })
+
+  it('frame 없으면 기존 정규화와 같다', () => {
+    const r = closePolygon([[100, 100], [400, 100], [400, 300], [100, 300]])
+    expect(r.ok && r.value).toEqual([[0, 0], [300, 0], [300, 200], [0, 200]])
+  })
+
+  it('내부가 겹치면 OVERLAP_MESSAGE와 겹친 인덱스', () => {
+    const r = close([[200, 0], [500, 0], [500, 200], [200, 200]])
+    expect(r).toMatchObject({ ok: false, message: OVERLAP_MESSAGE, overlaps: [0] })
+  })
+
+  it('여러 방과 겹치면 인덱스를 모두 담는다', () => {
+    const far: Point2[] = [[1000, 1000], [1100, 1000], [1100, 1100], [1000, 1100]]
+    const r3: Point2[] = [[400, 0], [700, 0], [700, 200], [400, 200]]
+    const r = close([[200, 0], [500, 0], [500, 200], [200, 200]], [r1, far, r3])
+    expect(r).toMatchObject({ ok: false, overlaps: [0, 2] })
+  })
+
+  it('변 접촉은 통과하고 음수 좌표를 유지한다', () => {
+    const touch = close([[300, 0], [500, 0], [500, 200], [300, 200]])
+    expect(touch.ok && touch.value).toEqual([[300, 0], [500, 0], [500, 200], [300, 200]])
+    const left = close([[-210, 0], [-10, 0], [-10, 200], [-210, 200]])
+    expect(left.ok && left.value).toEqual([[-210, 0], [-10, 0], [-10, 200], [-210, 200]])
+  })
+
+  it('집 전체가 10000cm를 넘으면 거부', () => {
+    const wide: Point2[] = [[0, 0], [3000, 0], [3000, 100], [0, 100]]
+    const r = close([[7010, 0], [10010, 0], [10010, 100], [7010, 100]], [wide])
+    expect(r).toMatchObject({ ok: false, message: '집 전체 크기가 10000cm를 넘습니다' })
   })
 })

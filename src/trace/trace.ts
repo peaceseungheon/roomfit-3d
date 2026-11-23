@@ -1,7 +1,8 @@
 // 평면도 트레이싱·모서리 편집 순수 로직(FR-04, FR-05). 길이 cm, 좌표 [x, z], 이미지 y -> 방 z.
+import { roomsOverlap } from '../io/roomOverlap'
 import { ROOM_MAX, validateRoom } from '../io/validate'
 import { FIT_EPS, nearestWallIn, outwardNormal, signedArea } from '../scene/geometry'
-import type { Item, Point2, Room } from '../store/types'
+import { PLAN_EXTENT_MAX, type Item, type Point2, type Room } from '../store/types'
 
 /** 이미지 용량 상한. PRD에 수치가 없어 10MB로 둔다(보고 사항). */
 export const IMAGE_MAX_BYTES = 10 * 1024 * 1024
@@ -90,32 +91,56 @@ const hasDuplicate = (p: Point2[]) => p.some((a, i) => p.some((b, j) => i < j &&
 // ---- AC-04-3/4 닫기, room.points 변환 ----
 export const canClose = (n: number) => n >= 3
 
-/** 정규화 규약: signedArea > 0(프리셋과 같은 방향), 최소 좌표가 (0,0), 1cm 반올림. */
-export function toRoomPoints(points: Point2[]): Point2[] {
-  const minX = Math.min(...points.map((p) => p[0]))
-  const minZ = Math.min(...points.map((p) => p[1]))
-  const moved = points.map((p): Point2 => [Math.round(p[0] - minX), Math.round(p[1] - minZ)])
+/** 평면 cm -> 문서 cm: 1cm 반올림 후 signedArea > 0(프리셋과 같은 방향). 원점 정규화는 하지 않는다. */
+export function toDocPoints(points: Point2[], offset: Point2): Point2[] {
+  const moved = points.map((p): Point2 => [Math.round(p[0] + offset[0]), Math.round(p[1] + offset[1])])
   return signedArea(moved) < 0 ? moved.reverse() : moved
+}
+
+/** 정규화 규약: signedArea > 0(프리셋과 같은 방향), 최소 좌표가 (0,0), 1cm 반올림. */
+export const toRoomPoints = (points: Point2[]): Point2[] =>
+  toDocPoints(points, [-Math.min(...points.map((p) => p[0])), -Math.min(...points.map((p) => p[1]))])
+
+export const OVERLAP_MESSAGE = '다른 방과 내부가 겹칩니다'
+
+/** 문서 좌표 닫기 기준. offset은 평면 -> 문서 이동량, others는 문서 좌표의 기존 방들. */
+export interface DocFrame {
+  offset: Point2
+  others: readonly Point2[][]
 }
 
 export interface CloseError {
   message: string
   /** 교차 선분 쌍. 입력 순서가 아니라 closePolygon 내부 정규화(반전될 수 있음) 순서의 인덱스라 화면 점 순서와 다를 수 있다. 화면 표시는 findIntersections를 다시 계산한다. 교차가 원인이 아니면 빈 배열 */
   crossings: [number, number][]
+  /** 내부가 겹친 frame.others 인덱스. 겹침이 원인이 아니면 빈 배열 */
+  overlaps: number[]
 }
 
 /** 방 상한·점 수·교차·퇴화를 검사해 room.points를 만든다. points는 cm. */
-export function closePolygon(points: Point2[]): { ok: true; value: Point2[] } | ({ ok: false } & CloseError) {
-  const bad = (message: string, crossings: [number, number][] = []) => ({ ok: false as const, message, crossings })
+export function closePolygon(points: Point2[], frame?: DocFrame): { ok: true; value: Point2[] } | ({ ok: false } & CloseError) {
+  const bad = (message: string, crossings: [number, number][] = [], overlaps: number[] = []) => ({
+    ok: false as const,
+    message,
+    crossings,
+    overlaps,
+  })
   if (!canClose(points.length)) return bad('점을 3개 이상 찍어야 닫을 수 있습니다')
   if (!points.every((p) => p.every(Number.isFinite))) return bad('점 좌표가 올바르지 않습니다')
-  const room = toRoomPoints(points)
+  const room = frame ? toDocPoints(points, frame.offset) : toRoomPoints(points)
   if (hasDuplicate(room)) return bad('겹치는 점이 있습니다')
   const crossings = findIntersections(room)
   if (crossings.length) return bad('선이 서로 교차합니다. 교차한 구간을 고쳐 주세요', crossings)
   if (signedArea(room) === 0) return bad('면적이 없는 도형입니다')
   const errs = validateRoom({ height: TRACE_DEFAULT_HEIGHT, points: room })
   if (errs.length) return bad(errs[0].message)
+  if (frame) {
+    const overlaps = frame.others.flatMap((o, i) => (roomsOverlap(o, room) ? [i] : []))
+    if (overlaps.length) return bad(OVERLAP_MESSAGE, [], overlaps)
+    const all = [...frame.others.flat(), ...room]
+    if ([0, 1].some((a) => Math.max(...all.map((p) => p[a])) - Math.min(...all.map((p) => p[a])) > PLAN_EXTENT_MAX))
+      return bad(`집 전체 크기가 ${PLAN_EXTENT_MAX}cm를 넘습니다`)
+  }
   return { ok: true, value: room }
 }
 

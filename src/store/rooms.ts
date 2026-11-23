@@ -1,5 +1,5 @@
 // 다중 방 공용 헬퍼: id·좌표 불변식·소속/천장고 판정. 1unit=1cm, 좌표 [x, z].
-import { nearestWallIn, pointInPolygon } from '../scene/geometry'
+import { nearestWallIn, pointInPolygon, ROOM_ADD_GAP } from '../scene/geometry'
 import { PLAN_EXTENT_MAX, type DocData, type Item, type Point2, type Room, type RoomShape } from './types'
 
 /** `r(\d+)` 최대값 + 1. 그 외 id는 건너뛴다. */
@@ -87,3 +87,10 @@ export function finalizeDoc(rooms: Room[], items: Item[]): DocData | null {
 /** 방 하나의 height·points를 교체하고 저장 유효성까지 맞춘다. 실패면 null. 평행이동은 호출부 몫. */
 export const applyRoomGeometry = (doc: DocData, id: string, shape: RoomShape): DocData | null =>
   finalizeDoc(withRoom(doc.rooms, id, shape), doc.items)
+
+/** 새 방 윤곽을 활성 방 오른쪽에 ROOM_ADD_GAP만큼 띄우고 z 시작을 맞춘 좌표. */
+export function placeRightOf(active: Room, points: Point2[]): Point2[] {
+  const dx = Math.max(...active.points.map((p) => p[0])) + ROOM_ADD_GAP - Math.min(...points.map((p) => p[0]))
+  const dz = Math.min(...active.points.map((p) => p[1])) - Math.min(...points.map((p) => p[1]))
+  return points.map(([x, z]): Point2 => [x + dx, z + dz])
+}

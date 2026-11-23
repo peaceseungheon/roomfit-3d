@@ -3,6 +3,7 @@ import { ROOMS_MAX, validateRoomInput, type RoomInput, type RoomInputErrors } fr
 import { isDragging } from '../scene/dragSession'
 import { computeWarnings } from '../scene/collision'
 import { getActiveRoom } from '../store/activeRoom'
+import { placeRightOf } from '../store/rooms'
 import { lPoints, rectPoints, shiftItems, useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { Item, Point2, Room, RoomShape } from '../store/types'
@@ -68,8 +69,8 @@ export function submitRoomForm(f: RoomForm): boolean {
     : createRectRoom(i.width, i.depth, i.height, f.keepItems)
 }
 
-/** 방 추가 간격(cm). 벽 두께와 같아 두 방의 벽 띠가 하나로 보인다. */
-export const ROOM_ADD_GAP = 10
+export { ROOM_ADD_GAP } from '../scene/geometry'
+export { placeRightOf }
 
 /** "방 추가"가 막히는 이유. 추가할 수 있으면 null. */
 export const addRoomBlockedReason = (rooms: readonly Room[]): string | null =>
@@ -77,13 +78,6 @@ export const addRoomBlockedReason = (rooms: readonly Room[]): string | null =>
 
 /** 방이 2개 이상이면 "새 방 만들기"는 문서 전체 교체 확인을 먼저 거친다(스펙 §5.5 진입점 구분). */
 export const needsReplaceConfirm = (rooms: readonly Room[]): boolean => rooms.length >= 2
-
-/** 새 방 윤곽을 활성 방 오른쪽에 ROOM_ADD_GAP만큼 띄우고 z 시작을 맞춘 좌표. */
-export function placeRightOf(active: Room, points: Point2[]): Point2[] {
-  const dx = Math.max(...active.points.map((p) => p[0])) + ROOM_ADD_GAP - Math.min(...points.map((p) => p[0]))
-  const dz = Math.min(...active.points.map((p) => p[1])) - Math.min(...points.map((p) => p[1]))
-  return points.map(([x, z]): Point2 => [x + dx, z + dz])
-}
 
 /** add 모드 확정: 활성 방 오른쪽에 방을 추가하고 새 방을 활성화한다. 실패면 null. */
 export function submitAddRoomForm(f: RoomForm): string | null {
