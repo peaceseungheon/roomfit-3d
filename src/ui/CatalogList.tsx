@@ -9,11 +9,13 @@ export default function CatalogList() {
         {FURNITURE_CATALOG.map((c) => (
           <li key={c.modelType}>
             <button onClick={() => addFromCatalog(c.modelType)}>
-              {c.name}
-              <small>
-                {' '}
-                {c.w}×{c.d}×{c.h}
-              </small>
+              <span className="swatch" style={{ background: c.color }} aria-hidden="true" />
+              <span className="cat-text">
+                {c.name}{' '}
+                <small>
+                  {c.w}×{c.d}×{c.h}
+                </small>
+              </span>
             </button>
           </li>
         ))}

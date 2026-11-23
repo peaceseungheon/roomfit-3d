@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber'
-import { Edges, Grid, Html } from '@react-three/drei'
+import { Edges, Grid, Html, Line } from '@react-three/drei'
 import { DoubleSide, ExtrudeGeometry, Shape, ShapeGeometry, Vector2, type Vector3 } from 'three'
 import { itemLabel } from '../store/catalog'
 import { useActiveRoom } from '../store/activeRoom'
@@ -30,13 +30,13 @@ import CornerEditLayer from './CornerEditLayer'
 import { ContextLostOverlay } from '../ui/WebglNotice'
 import { furnitureDimText, wallDimLabels } from './dimensions'
 
-const DEFAULT_FURNITURE_COLOR = '#9e9e9e'
-const SELECTED_COLOR = '#ff6f00'
+const DEFAULT_FURNITURE_COLOR = '#8aa0b4'
+const SELECTED_COLOR = '#f2a900'
 const WARN_COLOR = '#e53935' // 간섭 하이라이트(AC-11-1)
-const SWING_COLOR = '#42a5f5'
+const SWING_COLOR = '#5b9bd5'
 const CLICK_SLOP_PX = 3 // 이보다 많이 움직인 클릭은 카메라 드래그로 보고 무시
 const stop = (e: ThreeEvent<MouseEvent>) => e.stopPropagation() // 항목 클릭이 바닥(선택 해제)까지 가지 않게
-const FIXTURE_COLOR = { DOOR: '#795548', WINDOW: '#81d4fa', OUTLET: '#eeeeee' } as const
+const FIXTURE_COLOR = { DOOR: '#4f74a0', WINDOW: '#7fb4e6', OUTLET: '#eeeeee' } as const
 
 // Shape는 XY 평면. rotateX(-90°) 후 (x, -z)가 바닥 (x, z)로, 돌출 깊이가 +y로 간다.
 const toShapePts = (pts: Point2[]) => pts.map(([x, z]) => new Vector2(x, -z))
@@ -55,7 +55,8 @@ function Walls({ room, rooms }: { room: Room; rooms: Room[] }) {
   return (
     <mesh geometry={geometry}>
       {/* ponytail: 쿼터뷰에서 앞쪽 벽이 가구를 가려 반투명 처리. 카메라 쪽 벽만 숨기기는 단계 3 카메라 작업 때 판단 */}
-      <meshStandardMaterial color="#f5f5f0" transparent opacity={0.45} depthWrite={false} />
+      <meshStandardMaterial color="#f7fafd" transparent opacity={0.3} depthWrite={false} />
+      <Edges color="#0f3057" />
     </mesh>
   )
 }
@@ -86,7 +87,8 @@ function Floor({ room, active, onActivate }: { room: Room; active: boolean; onAc
   useEffect(() => () => geometry.dispose(), [geometry])
   return (
     <mesh geometry={geometry} onClick={onClick}>
-      <meshStandardMaterial color={active ? '#e8ded9' : '#d7ccc8'} />
+      <meshStandardMaterial color={active ? '#ffffff' : '#e3ebf3'} />
+      <Edges color="#7e97b3" />
     </mesh>
   )
 }
@@ -123,6 +125,32 @@ function WallDims({ room, active, labelRoot }: { room: Room; active: boolean; la
       <span className={active ? 'scene-label' : 'scene-label muted'}>{text}</span>
     </Html>
   ))
+}
+
+/** 활성 방의 가로·세로 치수선(분양 평면도의 치수 체인). 끝 눈금 + cm 칩. 1인칭에서는 그리지 않는다. */
+function RoomChains({ room, labelRoot }: { room: Room; labelRoot: RefObject<HTMLDivElement | null> }) {
+  const b = useMemo(() => roomBounds(room.points), [room.points])
+  const y = 0.6
+  const gap = 60 // 벽 바깥으로 띄우는 거리(cm)
+  const tick = 14
+  const zc = b.maxZ + gap
+  const xc = b.minX - gap
+  const pts: [number, number, number][] = [
+    [b.minX, y, zc], [b.maxX, y, zc], [b.minX, y, zc - tick], [b.minX, y, zc + tick], [b.maxX, y, zc - tick], [b.maxX, y, zc + tick],
+    [xc, y, b.minZ], [xc, y, b.maxZ], [xc - tick, y, b.minZ], [xc + tick, y, b.minZ], [xc - tick, y, b.maxZ], [xc + tick, y, b.maxZ],
+  ]
+  const chip = (text: string, x: number, z: number) => (
+    <Html portal={labelRoot as RefObject<HTMLElement>} position={[x, y, z]} center style={{ pointerEvents: 'none' }}>
+      <span className="scene-chain">{text}</span>
+    </Html>
+  )
+  return (
+    <>
+      <Line segments points={pts} color="#0f3057" lineWidth={1.5} raycast={() => null} />
+      {chip(`${Math.round(b.maxX - b.minX)} cm`, (b.minX + b.maxX) / 2, zc)}
+      {chip(`${Math.round(b.maxZ - b.minZ)} cm`, xc, (b.minZ + b.maxZ) / 2)}
+    </>
+  )
 }
 
 function Fixture({ item, rooms, points, warned }: { item: Item; rooms: Room[]; points: Point2[]; warned: boolean }) {
@@ -210,7 +238,7 @@ export default function Scene() {
         el.addEventListener('webglcontextrestored', () => setLost(false))
       }}
       onPointerMissed={() => useUiStore.getState().select(null)}>
-      <color attach="background" args={['#eceff1']} />
+      <color attach="background" args={['#eaf0f6']} />
       <CameraRig mode={cameraMode} bounds={camBounds} eye={eye} />
       <ambientLight intensity={1.2} />
       <directionalLight position={[b.maxX + span, span * 2, b.maxZ]} intensity={1.5} />
@@ -221,14 +249,15 @@ export default function Scene() {
         position={[0, 0.1, 0]}
         cellSize={SNAP_CM}
         sectionSize={SNAP_CM * 10}
-        cellColor="#b0bec5"
-        sectionColor="#78909c"
+        cellColor="#c9d6e3"
+        sectionColor="#9fb3c8"
         infiniteGrid
         fadeDistance={span * 4}
       />
       {rooms.map((r) => (
         <Walls key={`walls-${r.id}`} room={r} rooms={rooms} />
       ))}
+      {cameraMode !== 'FIRST_PERSON' && <RoomChains key={`chain-${active.id}`} room={active} labelRoot={labelRoot} />}
       {showDims && rooms.map((r) => (
         <WallDims key={`dims-${r.id}`} room={r} active={r.id === active.id} labelRoot={labelRoot} />
       ))}

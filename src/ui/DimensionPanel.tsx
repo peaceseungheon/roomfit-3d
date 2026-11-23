@@ -11,6 +11,7 @@ import { useUiStore } from '../store/useUiStore'
 import type { Item } from '../store/types'
 import { deleteSelected, duplicateSelected, patchItem } from './actions'
 import Field from './Field'
+import { WarnIcon } from './icons'
 import {
   POSITION_LIMIT,
   ROTATION_LIMITS,
@@ -224,7 +225,10 @@ function ItemWarnings({ id }: { id: string }) {
   return (
     <ul className="item-warnings" aria-label="경고 사유">
       {reasons.map((r, i) => (
-        <li key={i}>⚠ {r}</li>
+        <li key={i}>
+          <WarnIcon />
+          {r}
+        </li>
       ))}
     </ul>
   )

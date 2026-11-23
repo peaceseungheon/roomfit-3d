@@ -4,6 +4,7 @@ import { loadAds } from '../consent/adLoader'
 import { adsConfigured, consentAction, readConsent, shouldLoadAds, writeConsent } from '../consent/store'
 import { dimRows } from './dimTable'
 import { detectWebgl } from '../ui/webgl'
+import '../theme.css'
 import './landing.css'
 
 const $ = (sel: string) => document.querySelector<HTMLElement>(sel)

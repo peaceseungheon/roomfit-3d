@@ -5,7 +5,7 @@ import type { Room } from '../store/types'
 import { cornerClickAction, hitPoint } from './handles'
 import { CatchPlane, Dots, Polyline, Segments, type PlaneHandlers } from './planeInput'
 
-const C = { wall: '#1565c0', corner: '#1565c0', selected: '#ff6f00' }
+const C = { wall: '#0f3057', corner: '#0f3057', selected: '#f2a900' }
 
 export default function CornerEditLayer({ room }: { room: Room }) {
   const selectedCorner = useEditStore((s) => s.selectedCorner)

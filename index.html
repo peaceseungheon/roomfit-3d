@@ -9,25 +9,69 @@
     <script type="module" src="/src/landing/page.ts"></script>
   </head>
   <body>
-    <header class="site">RoomFit 3D</header>
+    <header class="site">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <rect x="1" y="1" width="30" height="30" rx="4" fill="#f2a900" />
+        <path d="M7 9.5h12.5V16H25v6.5H7z" fill="none" stroke="#0f2a4a" stroke-width="2.2" stroke-linejoin="round" />
+        <path d="M7 26.5h18M7 24.8v3.4M25 24.8v3.4" stroke="#0f2a4a" stroke-width="1.6" stroke-linecap="round" />
+      </svg>
+      <span>RoomFit <small>3D</small></span>
+    </header>
     <main>
       <section class="hero" aria-labelledby="h-hero">
-        <h1 id="h-hero">내 방에 가구, 사기 전에 넣어보세요</h1>
-        <p class="sub">실제 치수 그대로 · 가입 없이 · 설치 없이</p>
-        <a id="start" class="btn" href="/editor.html">시작하기</a>
-        <p id="webgl-error" role="alert" hidden>이 브라우저는 3D를 지원하지 않습니다. 최신 Chrome/Edge/Safari/Firefox를 사용하세요.</p>
+        <div class="hero-copy">
+          <h1 id="h-hero">내 방에 가구, 사기 전에 넣어보세요</h1>
+          <p class="sub">실제 치수 그대로 · 가입 없이 · 설치 없이</p>
+          <a id="start" class="btn" href="/editor.html">시작하기</a>
+          <p id="webgl-error" role="alert" hidden>이 브라우저는 3D를 지원하지 않습니다. 최신 Chrome/Edge/Safari/Firefox를 사용하세요.</p>
+        </div>
+        <figure class="plan">
+          <svg viewBox="0 0 560 430" role="img" aria-labelledby="plan-title plan-desc">
+            <title id="plan-title">예시 도면: 400×300cm 방</title>
+            <desc id="plan-desc">싱글 침대, 옷장, 소파가 놓인 방 평면도. 책상이 문 열림 반경과 겹쳐 붉은색 경고로 표시되어 있습니다.</desc>
+            <g class="grid">
+              <path d="M40 0v430M80 0v430M120 0v430M160 0v430M200 0v430M240 0v430M280 0v430M320 0v430M360 0v430M400 0v430M440 0v430M480 0v430M520 0v430M0 30h560M0 70h560M0 110h560M0 150h560M0 190h560M0 230h560M0 270h560M0 310h560M0 350h560M0 390h560" />
+            </g>
+            <rect class="floor" x="80" y="50" width="400" height="300" />
+            <path class="swing" d="M130 350V260A90 90 0 0 1 220 350z" />
+            <path class="swing-line" d="M130 350V260A90 90 0 0 1 220 350" />
+            <rect class="block bed" x="86" y="56" width="100" height="200" />
+            <rect class="block ward" x="374" y="56" width="100" height="60" />
+            <rect class="block sofa" x="318" y="258" width="150" height="85" />
+            <rect class="block bad" x="150" y="282" width="120" height="60" />
+            <path class="wall" d="M80 50H480V350H220M130 350H80Z" />
+            <path class="win" d="M240 50h110M240 56h110" />
+            <text class="lab" x="136" y="156" text-anchor="middle">싱글 침대</text>
+            <text class="dimlab" x="136" y="174" text-anchor="middle">100×200</text>
+            <text class="lab" x="424" y="90" text-anchor="middle">옷장</text>
+            <text class="lab" x="393" y="304" text-anchor="middle">2인 소파</text>
+            <text class="lab warn" x="210" y="317" text-anchor="middle">책상 · 문 열림 간섭</text>
+            <g class="chain">
+              <path pathLength="1" d="M80 26H480M80 18v16M480 18v16" />
+              <path pathLength="1" d="M52 50V350M44 50h16M44 350h16" />
+              <path pathLength="1" d="M130 384H220M130 376v16M220 376v16" />
+            </g>
+            <rect class="chip" x="248" y="14" width="64" height="24" />
+            <text class="num" x="280" y="31" text-anchor="middle">400 cm</text>
+            <rect class="chip" x="18" y="188" width="50" height="24" />
+            <text class="num" x="43" y="205" text-anchor="middle">300</text>
+            <rect class="chip" x="148" y="372" width="54" height="24" />
+            <text class="num" x="175" y="389" text-anchor="middle">90</text>
+          </svg>
+          <figcaption>예시 도면 · 샘플 방 400×300cm</figcaption>
+        </figure>
       </section>
-      <ul class="cards">
-        <li><strong>치수 입력 박스</strong><br />가구와 방 치수를 cm 단위로 직접 입력합니다.</li>
-        <li><strong>문 열림 경고</strong><br />문이 열리는 반경과 가구가 겹치면 붉게 알려 줍니다.</li>
-        <li><strong>시점 전환</strong><br />2D 평면, 3D 쿼터, 1인칭 눈높이로 둘러봅니다.</li>
+      <ul class="specs">
+        <li><strong>치수 입력 박스</strong><p>가구와 방 치수를 cm 단위로 직접 입력합니다.</p></li>
+        <li><strong>문 열림 경고</strong><p>문이 열리는 반경과 가구가 겹치면 붉게 알려 줍니다.</p></li>
+        <li><strong>시점 전환</strong><p>2D 평면, 3D 쿼터, 1인칭 눈높이로 둘러봅니다.</p></li>
       </ul>
       <details open>
         <summary><h2>사용법</h2></summary>
         <ol class="steps">
-          <li><strong>1. 방 만들기</strong><br />방의 가로·세로와 천장 높이를 입력하거나 모서리를 끌어 모양을 맞춥니다. 문과 창문, 콘센트 위치도 표시할 수 있습니다.</li>
-          <li><strong>2. 가구 넣기</strong><br />목록에서 가구를 골라 방에 놓고 끌어서 옮기거나 회전합니다. 이동은 10cm 단위로 맞춰집니다.</li>
-          <li><strong>3. 간섭 확인</strong><br />가구끼리 겹치거나 문이 열리는 길을 막으면 붉은색과 경고로 알려 줍니다. 결과는 JSON 파일로 저장할 수 있습니다.</li>
+          <li><strong>방 만들기</strong><p>방의 가로·세로와 천장 높이를 입력하거나 모서리를 끌어 모양을 맞춥니다. 문과 창문, 콘센트 위치도 표시할 수 있습니다.</p></li>
+          <li><strong>가구 넣기</strong><p>목록에서 가구를 골라 방에 놓고 끌어서 옮기거나 회전합니다. 이동은 10cm 단위로 맞춰집니다.</p></li>
+          <li><strong>간섭 확인</strong><p>가구끼리 겹치거나 문이 열리는 길을 막으면 붉은색과 경고로 알려 줍니다. 결과는 JSON 파일로 저장할 수 있습니다.</p></li>
         </ol>
       </details>
       <details open>
@@ -38,7 +82,7 @@
           <tbody id="dim-rows"></tbody>
         </table>
         <h3>배치 전에 재야 할 치수</h3>
-        <ul>
+        <ul class="check">
           <li>방의 가로·세로와 천장 높이(벽 안쪽 기준으로 잰다).</li>
           <li>문 너비와 문이 열리는 방향, 열렸을 때 필요한 공간.</li>
           <li>창문의 너비·높이와 바닥에서 창문 아래까지의 높이.</li>
@@ -68,8 +112,14 @@
       </div>
     </div>
     <footer>
-      <a href="/privacy.html">개인정보처리방침</a>
-      <span data-consent-link hidden> · <a href="#" id="consent-settings">동의 설정</a></span>
+      <div class="foot">
+        <div><strong>RoomFit 3D</strong><br /><span>실제 치수 그대로 · 가입 없이 · 설치 없이</span></div>
+        <nav aria-label="바로가기">
+          <a href="/editor.html">시작하기</a>
+          <a href="/privacy.html">개인정보처리방침</a>
+          <span data-consent-link hidden><a href="#" id="consent-settings">동의 설정</a></span>
+        </nav>
+      </div>
       <span id="consent-note" role="status" hidden> 선택을 저장하지 못해 이번 방문에만 적용됩니다. 다음 방문에 다시 물을 수 있습니다.</span>
     </footer>
   </body>

@@ -42,7 +42,7 @@ export default function TraceConfirm() {
         </fieldset>
       )}
       <div className="row">
-        <button type="button" disabled={disabled} onClick={() => commit(false)}>
+        <button type="button" className="primary" disabled={disabled} onClick={() => commit(false)}>
           방 생성
         </button>
         <button type="button" disabled={disabled} onClick={() => commit(true)}>

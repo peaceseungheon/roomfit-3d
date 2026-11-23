@@ -22,7 +22,7 @@ export default function ConfirmDialog({ title, children, confirmLabel = '계속'
             취소
           </button>
         )}
-        <button data-autofocus={alertOnly ? '' : undefined} onClick={onConfirm}>
+        <button className="primary" data-autofocus={alertOnly ? '' : undefined} onClick={onConfirm}>
           {confirmLabel}
         </button>
       </div>

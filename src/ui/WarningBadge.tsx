@@ -4,6 +4,7 @@ import { useWarnings } from '../scene/useWarnings'
 import { itemLabel } from '../store/catalog'
 import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
+import { CheckIcon, ChevronIcon, WarnIcon } from './icons'
 
 
 export default function WarningBadge() {
@@ -15,18 +16,23 @@ export default function WarningBadge() {
     return it ? itemLabel(it) : '이름 없음'
   }
 
-  if (warnings.length === 0) return <div className="badge ok">문제 없음 ✓</div>
+  if (warnings.length === 0)
+    return (
+      <div className="badge ok">
+        <CheckIcon /> 문제 없음
+      </div>
+    )
   return (
     <div className="warn-wrap">
       <button className="badge warn" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        ⚠ 경고 {warnings.length} {open ? '▾' : '▸'}
+        <WarnIcon /> 경고 {warnings.length} <ChevronIcon dir={open ? 'down' : 'up'} />
       </button>
       {open && (
         <ul className="warn-list" aria-label="경고 목록">
           {warnings.map((w, i) => (
             <li key={`${w.itemId}-${w.kind}-${w.otherId ?? i}`}>
               <button onClick={() => useUiStore.getState().select(w.itemId)}>
-                ⚠ {nameOf(w.itemId)} · {KIND_LABEL[w.kind]}
+                <WarnIcon /> {nameOf(w.itemId)} · {KIND_LABEL[w.kind]}
                 {w.otherId ? ` (${nameOf(w.otherId)})` : ''}
               </button>
             </li>

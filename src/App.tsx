@@ -14,6 +14,7 @@ import WallEditor from './ui/WallEditor'
 import TopBar, { DimensionsToggle, SnapToggle } from './ui/TopBar'
 import WarningBadge from './ui/WarningBadge'
 import { useEditorKeys } from './ui/useEditorKeys'
+import { ChevronIcon } from './ui/icons'
 
 const WEBGL_OK = detectWebgl()
 const SHEET_LEVELS = ['min', 'mid', 'full'] as const
@@ -43,7 +44,7 @@ export default function App() {
           aria-label={collapsed ? '패널 열기' : '패널 접기'}
           onClick={() => setCollapsed((c) => !c)}
         >
-          {collapsed ? '▸' : '◂'}
+          <ChevronIcon dir={collapsed ? 'left' : 'right'} />
         </button>
         <aside className="panel" data-collapsed={collapsed} data-sheet={sheet} aria-label="편집 패널">
           <button
@@ -51,7 +52,7 @@ export default function App() {
             aria-label="패널 높이 바꾸기"
             onClick={() => setSheet(SHEET_LEVELS[(SHEET_LEVELS.indexOf(sheet) + 1) % 3])}
           >
-            ▔▔▔
+            <span className="grip" aria-hidden="true" />
           </button>
           <div className="panel-body">
             <DimensionPanel />

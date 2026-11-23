@@ -16,7 +16,7 @@ export default function RoomPreview({ room, numbered = false }: { room: RoomShap
       viewBox={`${Math.min(...xs) - pad} ${Math.min(...zs) - pad} ${w + pad * 2} ${d + pad * 2}`}
       preserveAspectRatio="xMidYMid meet"
     >
-      <polygon points={room.points.map((p) => p.join(',')).join(' ')} fill="#fff" stroke="#263238" strokeWidth={Math.max(w, d) / 100} />
+      <polygon points={room.points.map((p) => p.join(',')).join(' ')} fill="#fff" stroke="#0f2a4a" strokeWidth={Math.max(w, d) / 100} />
       {numbered &&
         room.points.map((p, i) => {
           const q = room.points[(i + 1) % room.points.length]

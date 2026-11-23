@@ -315,7 +315,7 @@ function Dialog({ stage }: { stage?: ReactNode }) {
                     기준선 다시 찍기
                   </button>
                 )}
-                <button type="button" disabled={!canClose} onClick={() => t.closeTrace()}>
+                <button type="button" className="primary" disabled={!canClose} onClick={() => t.closeTrace()}>
                   닫기
                 </button>
               </div>
@@ -335,7 +335,7 @@ function Dialog({ stage }: { stage?: ReactNode }) {
                 <button type="button" disabled={count === 0 && step !== 'closed'} onClick={step === 'closed' ? t.reopenTrace : t.undoTracePoint}>
                   {step === 'closed' ? '다시 편집' : '마지막 점 되돌리기'}
                 </button>
-                <button type="button" disabled={!canClose} onClick={() => t.closeTrace()}>
+                <button type="button" className="primary" disabled={!canClose} onClick={() => t.closeTrace()}>
                   닫기
                 </button>
               </div>

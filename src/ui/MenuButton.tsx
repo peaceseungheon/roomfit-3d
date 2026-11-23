@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { adsConfigured, readConsent, writeConsent } from '../consent/store'
 import { ADSENSE_CLIENT, ADSENSE_SLOT } from '../landing/config'
 import { downloadBlob, stampedName } from '../io/download'
@@ -10,6 +10,7 @@ import { useUiStore } from '../store/useUiStore'
 import type { DocData } from '../store/types'
 import { importDocument, resetToSample } from './actions'
 import ConfirmDialog from './ConfirmDialog'
+import { CheckIcon, MenuIcon, WarnIcon } from './icons'
 
 type Dlg = { kind: 'error'; lines: string[] } | { kind: 'import'; doc: DocData } | { kind: 'reset' }
 
@@ -36,12 +37,13 @@ function MenuStatus() {
   if (s === 'failed')
     return (
       <p className="save failed">
-        ⚠ 저장 실패. JSON 내보내기로 백업하세요
+        <WarnIcon /> 저장 실패. JSON 내보내기로 백업하세요
       </p>
     )
   return (
     <p role="status" className="save">
-      저장 상태: {s === 'saved' ? '저장됨 ✓' : '변경 대기 없음'}
+      저장 상태: {s === 'saved' ? '저장됨' : '변경 대기 없음'}
+      {s === 'saved' && <CheckIcon />}
     </p>
   )
 }
@@ -73,6 +75,7 @@ function ConsentToggle() {
 /** S-06 메뉴(≡). 내보내기·불러오기·샘플 초기화와 저장 상태. */
 export default function MenuButton() {
   const [open, setOpen] = useState(false)
+  const menuId = useId()
   const [dlg, setDlg] = useState<Dlg | null>(null)
   const wrap = useRef<HTMLDivElement>(null)
   const toggle = useRef<HTMLButtonElement>(null)
@@ -108,19 +111,20 @@ export default function MenuButton() {
         }
       }}
     >
-      <button ref={toggle} data-modal-fallback aria-label="메뉴" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        ≡
+      <button ref={toggle} data-modal-fallback aria-label="메뉴" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen((o) => !o)}>
+        <MenuIcon />
       </button>
       {open && (
-        <div className="menu" role="menu" aria-label="메뉴">
+        // 버튼과 체크박스가 섞인 팝오버라 ARIA menu 패턴(방향키 이동)을 약속하지 않고 Tab으로 이동하는 그룹으로 둔다
+        <div id={menuId} className="menu" role="group" aria-label="메뉴">
           <MenuStatus />
-          <button role="menuitem" onClick={choose(exportJson)}>JSON 내보내기</button>
-          <button role="menuitem" onClick={() => {
+          <button onClick={choose(exportJson)}>JSON 내보내기</button>
+          <button onClick={() => {
               setOpen(false)
               file.current?.click()
             }}>JSON 불러오기</button>
-          <button role="menuitem" onClick={choose(capturePng)}>캡처(PNG)</button>
-          <button role="menuitem" onClick={choose(() => setDlg({ kind: 'reset' }))}>샘플로 초기화</button>
+          <button onClick={choose(capturePng)}>캡처(PNG)</button>
+          <button onClick={choose(() => setDlg({ kind: 'reset' }))}>샘플로 초기화</button>
           <ConsentToggle />
         </div>
       )}

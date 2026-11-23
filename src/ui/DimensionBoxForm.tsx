@@ -73,7 +73,7 @@ export default function DimensionBoxForm() {
         <input id="box-color" type="color" value={color} onChange={(e) => setColor(e.target.value)} />
         <span className="unit">{color}</span>
       </div>
-      <button onClick={submit}>치수 박스 추가</button>
+      <button className="primary" onClick={submit}>치수 박스 추가</button>
     </section>
   )
 }

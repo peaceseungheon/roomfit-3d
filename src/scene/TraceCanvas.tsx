@@ -19,7 +19,7 @@ import { applyTraceClick, cameraKey, gridPlacement, traceBounds } from './traceV
 const LINE_Y = 1
 const DOT_Y = 2
 const INPUT_Y = 10
-const C = { candidate: '#fb8c00', corner: '#1565c0', first: '#ff6f00', line: '#1565c0', bad: '#e53935', baseline: '#2e7d32', preview: '#64b5f6', selected: '#ff6f00', ghost: '#90a4ae', snap: '#ec407a' }
+const C = { candidate: '#fb8c00', corner: '#0f3057', first: '#f2a900', line: '#0f3057', bad: '#e53935', baseline: '#2e7d32', preview: '#64b5f6', selected: '#f2a900', ghost: '#9fb3c8', snap: '#ec407a' }
 const GUIDE_DASH = 15 // 이웃 변 안내선 점선 길이(cm)
 
 /** 빈 캔버스 그림 영역(AC-04-7): 흰 바탕 + 격자 + 테두리. 격자 간격은 줌에 따라 바꾼다(gridSteps). area는 blankArea(고스트). */
@@ -50,14 +50,14 @@ function BlankArea({ area }: { area: Bounds }) {
         position={[grid.center[0], 0.5, grid.center[1]]}
         cellSize={steps.cell}
         sectionSize={steps.section}
-        cellColor="#cfd8dc"
-        sectionColor="#90a4ae"
+        cellColor="#c9d6e3"
+        sectionColor="#9fb3c8"
         cellThickness={0.6}
         sectionThickness={1}
         fadeDistance={1e6}
         raycast={() => null}
       />
-      <Polyline points={rect} y={LINE_Y - 0.5} color="#90a4ae" width={1} closed />
+      <Polyline points={rect} y={LINE_Y - 0.5} color="#9fb3c8" width={1} closed />
     </>
   )
 }
@@ -101,7 +101,7 @@ function ImagePlane({ url, width, depth }: { url: string; width: number; depth: 
   return (
     <mesh rotation-x={-Math.PI / 2} position={[width / 2, 0, depth / 2]} raycast={() => null}>
       <planeGeometry args={[width, depth]} />
-      <meshBasicMaterial map={tex} color={tex ? '#ffffff' : '#cfd8dc'} toneMapped={false} />
+      <meshBasicMaterial map={tex} color={tex ? '#ffffff' : '#c9d6e3'} toneMapped={false} />
     </mesh>
   )
 }
@@ -234,7 +234,7 @@ export default function TraceCanvas() {
     // isolation: drei Html 라벨의 큰 z-index를 이 캔버스 안에 가둔다(.scene-root와 같은 규칙). 라벨 portal 대상도 이 div.
     <div ref={labelRoot} style={{ position: 'absolute', inset: 0, isolation: 'isolate' }}>
       <Canvas>
-        <color attach="background" args={['#eceff1']} />
+        <color attach="background" args={['#eaf0f6']} />
         {/* 2D 고정(회전 불가, 이동·확대 허용). 이미지·축척이 바뀌면 다시 맞춘다(key). */}
         <CameraRig key={key} mode="2D" bounds={bounds} eye={[(bounds.minX + bounds.maxX) / 2, (bounds.minZ + bounds.maxZ) / 2]} />
         {image && r ? <ImagePlane url={image.url} width={r.width} depth={r.depth} /> : <BlankArea area={area} />}

@@ -7,6 +7,7 @@ import { useTraceStore } from '../store/useTraceStore'
 import { useUiStore } from '../store/useUiStore'
 import Modal from './Modal'
 import { countOutsideFurniture, formItems, formRoom, initialRoomForm, notchesError, roomFormErrors, submitAddRoomForm, submitRoomForm, type RoomForm } from './roomForm'
+import { WarnIcon } from './icons'
 import RoomPreview from './RoomPreview'
 import NumField from './NumField'
 import NotchSection from './NotchSection'
@@ -95,7 +96,7 @@ export default function RoomDialog({ onClose, mode = 'replace' }: Props) {
             ))}
             {outside > 0 && (
               <p role="status" className="field-error">
-                ⚠ {outside}개 가구가 방 밖에 놓입니다(경고로 표시)
+                <WarnIcon /> {outside}개 가구가 방 밖에 놓입니다(경고로 표시)
               </p>
             )}
             <p className="hint">되돌리기(Undo)로 복구할 수 있습니다. 방 밖이 된 가구는 경고로 표시됩니다.</p>
