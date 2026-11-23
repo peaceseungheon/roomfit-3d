@@ -7,6 +7,8 @@ import { createSample } from './sample'
 import { CORRUPT_BACKUP_KEY, restoreSaved, serializeDocument, startAutoSave, STORAGE_KEY } from '../io/persist'
 import { parseDocument } from '../io/validate'
 import { lockDoc, unlockDoc } from './dragLock'
+import { makeDuplicate } from '../ui/placement'
+import { moveTarget, snapStep } from '../scene/interaction'
 import type { Item } from './types'
 
 const item = (id: string): Item => ({
@@ -482,5 +484,74 @@ describe('flush', () => {
     useDocStore.getState().addItem(item('g'))
     target.dispatchEvent(new Event('beforeunload'))
     expect(setItem).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('아이템 좌표 상한(저장 검증 일치)', () => {
+  const undoCount = () => useDocStore.temporal.getState().pastStates.length
+  const savable = () => {
+    const { rooms, items } = useDocStore.getState()
+    return parseDocument(serializeDocument({ rooms, items })).ok
+  }
+  const findItem = (id: string) => useDocStore.getState().items.find((it) => it.id === id)!
+
+  it('updateItem: ±10000을 넘으면 거부하고 상태 유지', () => {
+    const before = useDocStore.getState().items
+    expect(useDocStore.getState().updateItem('item_001', { position: [10001, 0, 0] })).toBe(false)
+    expect(useDocStore.getState().updateItem('item_001', { position: [0, 0, -10001] })).toBe(false)
+    expect(useDocStore.getState().items).toBe(before)
+    expect(undoCount()).toBe(0)
+  })
+  it('updateItem: ±10000 경계는 허용하고 저장 검증을 통과', () => {
+    expect(useDocStore.getState().updateItem('item_001', { position: [10000, 0, -10000] })).toBe(true)
+    expect(findItem('item_001').position).toEqual([10000, 0, -10000])
+    expect(savable()).toBe(true)
+  })
+  it('addItem: 복제(+20)가 상한을 넘으면 거부하고 상태 유지', () => {
+    expect(useDocStore.getState().addItem({ ...item('edge'), position: [9990, 0, 0] })).toBe(true)
+    const before = useDocStore.getState().items
+    const dup = makeDuplicate(findItem('edge'), before)
+    expect(dup.position[0]).toBe(10010)
+    expect(useDocStore.getState().addItem(dup)).toBe(false)
+    expect(useDocStore.getState().items).toBe(before)
+  })
+  it('방향키 이동이 상한을 넘으면 아이템을 바꾸지 않는다', () => {
+    expect(useDocStore.getState().addItem({ ...item('edge'), position: [10000, 0, 0] })).toBe(true)
+    const edge = findItem('edge')
+    const step = snapStep(true)
+    const position = moveTarget(edge, edge.position[0] + step, edge.position[2], useDocStore.getState().rooms, step)
+    expect(position).toEqual([10010, 0, 0])
+    expect(useDocStore.getState().updateItem(edge.id, { position })).toBe(false)
+    expect(findItem('edge')).toBe(edge)
+  })
+})
+
+describe('무변경 편집은 Undo 단계를 만들지 않는다', () => {
+  const past = () => useDocStore.temporal.getState().pastStates.length
+
+  it('renameRoom: 같은 이름이면 true, rooms 참조 유지, 이력 없음', () => {
+    const rooms = useDocStore.getState().rooms
+    expect(useDocStore.getState().renameRoom('r1', rooms[0].name)).toBe(true)
+    expect(useDocStore.getState().rooms).toBe(rooms)
+    expect(past()).toBe(0)
+  })
+  it('renameRoom: 실제 변경은 이력 1단계', () => {
+    expect(useDocStore.getState().renameRoom('r1', '거실')).toBe(true)
+    expect(useDocStore.getState().rooms[0].name).toBe('거실')
+    expect(past()).toBe(1)
+  })
+  it('setRoomGeometry: 같은 모양이면 true, rooms 참조 유지, 이력 없음', () => {
+    const rooms = useDocStore.getState().rooms
+    const r0 = rooms[0]
+    const sameShape = { height: r0.height, points: r0.points.map(([x, z]): [number, number] => [x, z]) }
+    expect(useDocStore.getState().setRoomGeometry(r0.id, sameShape)).toBe(true)
+    expect(useDocStore.getState().rooms).toBe(rooms)
+    expect(past()).toBe(0)
+  })
+  it('setRoomGeometry: 실제 변경은 이력 1단계', () => {
+    const r0 = useDocStore.getState().rooms[0]
+    const shifted = { height: r0.height, points: r0.points.map(([x, z]): [number, number] => [x + 10, z]) }
+    expect(useDocStore.getState().setRoomGeometry(r0.id, shifted)).toBe(true)
+    expect(past()).toBe(1)
   })
 })

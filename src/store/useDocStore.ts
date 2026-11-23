@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { temporal } from 'zundo'
 import { createSample } from './sample'
-import { ITEM_MAX_H, ITEM_MAX_WD, NAME_MAX, ROOMS_MAX, validateRoom, validateRoomInput } from '../io/validate'
+import { ITEM_MAX_H, ITEM_MAX_WD, NAME_MAX, PLAN_EXTENT_MAX, ROOMS_MAX, validateRoom, validateRoomInput } from '../io/validate'
 import { roomsOverlap } from '../io/roomOverlap'
 import { isDragging } from '../scene/dragSession'
 import {
@@ -74,11 +74,18 @@ export { shiftItems }
 
 const clamp = (v: number, hi: number) => Math.min(Math.max(v, 1), hi)
 
-/** 규약 강제: y=0, 크기 clamp(W,D 1~1000 / H 1~500). 유한수가 아니면 null. */
+/** 저장 검증(±PLAN_EXTENT_MAX)과 같은 방 모양인지. 같으면 편집으로 치지 않는다. */
+const sameShape = (room: Room, shape: RoomShape): boolean =>
+  room.height === shape.height &&
+  room.points.length === shape.points.length &&
+  room.points.every(([x, z], i) => x === shape.points[i][0] && z === shape.points[i][1])
+
+/** 규약 강제: y=0, 크기 clamp(W,D 1~1000 / H 1~500), 좌표 ±10000. 유한수가 아니거나 범위 밖이면 null. */
 export function normalizeItem(it: Item, ceil: number): Item | null {
   const ok = (v: readonly number[]) => v.length === 3 && v.every(Number.isFinite)
   if (!ok(it.position) || !ok(it.rotation) || !ok(it.size)) return null
   if (it.elevation !== undefined && !Number.isFinite(it.elevation)) return null
+  if (Math.abs(it.position[0]) > PLAN_EXTENT_MAX || Math.abs(it.position[2]) > PLAN_EXTENT_MAX) return null
   const [w, h, d] = it.size
   return {
     ...it,
@@ -135,14 +142,18 @@ export const useDocStore = create<DocState>()(
           const nm = name.trim()
           if (nm.length < 1 || nm.length > NAME_MAX) return false
           const s = get()
-          if (!s.rooms.some((r) => r.id === id)) return false
+          const room = s.rooms.find((r) => r.id === id)
+          if (!room) return false
+          if (room.name === nm) return true
           set({ rooms: s.rooms.map((r) => (r.id === id ? { ...r, name: nm } : r)), pristine: false })
           return true
         },
         setRoomGeometry: (id, shape) => {
           if (isDragging()) return false
           const s = get()
-          if (!s.rooms.some((r) => r.id === id) || validateRoom(shape).length) return false
+          const cur = s.rooms.find((r) => r.id === id)
+          if (!cur || validateRoom(shape).length) return false
+          if (sameShape(cur, shape)) return true
           if (s.rooms.some((r) => r.id !== id && roomsOverlap(r.points, shape.points))) return false
           // 좌표 불변식: 새 모양이 음수 좌표를 만들면 문서 전체를 같은 양만큼 옮긴 뒤 적용한다
           const rooms = withRoom(s.rooms, id, shape)
