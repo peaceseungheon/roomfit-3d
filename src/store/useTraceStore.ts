@@ -9,6 +9,8 @@ import { canClose, closePolygon, cmToPx, findIntersections, computeScale, IMAGE_
 import { loadPixels } from '../trace/suggest/pixels'
 import { runSuggest, type SuggestHandle } from '../trace/suggest/run'
 import type { Point2 } from './types'
+import { docShiftDelta, placeRightOf } from './rooms'
+import { getActiveRoom } from './activeRoom'
 import { blankArea, clampArea, ghostRooms } from './traceSession'
 import { useDocStore } from './useDocStore'
 import { useUiStore } from './useUiStore'
@@ -48,7 +50,7 @@ interface TraceState {
   /** 닫기 성공 시 정규화된 room.points(cm). commit 대기 */
   pendingRoom: Point2[] | null
   /** 오류 문구와 교차 선분 쌍. crossings 인덱스는 정규화 순서라 화면 점 순서와 다를 수 있다(화면은 TraceCanvas가 다시 계산). 필드 오류는 baselineError */
-  error: { message: string; crossings: [number, number][] } | null
+  error: { message: string; crossings: [number, number][]; overlapWith?: number[] } | null
   baselineError: string | null
   /** FR-19 윤곽 제안 계산 상태 */
   suggest: 'idle' | 'running'
@@ -102,8 +104,8 @@ interface TraceState {
   applySuggestion: () => boolean
   /** 첫 점 클릭 또는 [닫기]. 실패 시 error 설정 + false(AC-04-3/4) */
   closeTrace: () => boolean
-  /** 닫힌 다각형으로 방 교체(Undo 1단계, AC-03-4). 성공하면 트레이싱 종료 */
-  commitTrace: (height?: number, keepItems?: boolean) => boolean
+  /** 닫힌 다각형을 방으로 확정(방 확정 1회 = Undo 1단계). next면 세션(이미지·축척·기준선·offset)을 유지하고 다음 방을 따고, 아니면 종료 */
+  commitTrace: (height?: number, keepItems?: boolean, next?: boolean) => boolean
 }
 
 const initial = {
@@ -387,22 +389,64 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
   closeTrace: () => {
     const s = get()
     if (s.scale === null || !canClose(s.corners.length)) return false
-    const r = closePolygon(s.corners.map((p) => pxToCm(p, s.scale!)))
+    const frame = s.offset ? { offset: s.offset, others: useDocStore.getState().rooms.map((r) => r.points) } : undefined
+    const r = closePolygon(s.corners.map((p) => pxToCm(p, s.scale!)), frame)
     if (!r.ok) {
-      set({ error: { message: r.message, crossings: r.crossings } })
+      set({ error: { message: r.message, crossings: r.crossings, overlapWith: r.overlaps.length ? r.overlaps : undefined } })
       return false
     }
     set({ closed: true, pendingRoom: r.value, error: null })
     return true
   },
-  commitTrace: (height = TRACE_DEFAULT_HEIGHT, keepItems = true) => {
-    const { pendingRoom } = get()
+  commitTrace: (height = TRACE_DEFAULT_HEIGHT, keepItems = true, next = false) => {
+    const s = get()
+    const { pendingRoom } = s
     if (!pendingRoom) return false
-    if (!useDocStore.getState().createPolygonRoom(pendingRoom, height, keepItems)) {
-      useUiStore.getState().setNotice('⚠ 방을 만들지 못했습니다. 천장고(180~400)와 크기를 확인하세요')
-      return false
+    const docStore = useDocStore.getState()
+    const cm = cornersCm(s)
+    const min: Point2 = [Math.min(...cm.map((p) => p[0])), Math.min(...cm.map((p) => p[1]))]
+    let offset: Point2
+    if (s.mode === 'replace' && s.confirmed === 0) {
+      if (!docStore.createPolygonRoom(pendingRoom, height, keepItems)) {
+        useUiStore.getState().setNotice('⚠ 방을 만들지 못했습니다. 천장고(180~400)와 크기를 확인하세요')
+        return false
+      }
+      offset = [-min[0], -min[1]]
+    } else {
+      // 이미지 첫 방(offset null): 활성 방 오른쪽에 놓고 그 이동량까지 offset에 반영한다
+      let points = pendingRoom
+      let base = s.offset
+      if (!base) {
+        points = placeRightOf(getActiveRoom(), pendingRoom)
+        base = [-min[0] + points[0][0] - pendingRoom[0][0], -min[1] + points[0][1] - pendingRoom[0][1]]
+      }
+      const before = docStore.rooms
+      const id = docStore.addRoom({ height, points })
+      if (!id) {
+        useUiStore.getState().setNotice('⚠ 방을 추가하지 못했습니다. 방 개수(20)·다른 방과의 겹침·집 전체 크기(10000cm)를 확인하세요')
+        return false
+      }
+      useUiStore.getState().setActiveRoomId(id)
+      const d = docShiftDelta(before, useDocStore.getState().rooms)
+      offset = [base[0] + d[0], base[1] + d[1]]
     }
-    get().cancel()
+    if (!next) {
+      get().cancel()
+      return true
+    }
+    set({
+      mode: 'add',
+      offset,
+      confirmed: s.confirmed + 1,
+      lastHeight: height,
+      corners: [],
+      closed: false,
+      pendingRoom: null,
+      error: null,
+      selected: null,
+      candidate: null,
+      lengthError: null,
+    })
     return true
   },
 }))

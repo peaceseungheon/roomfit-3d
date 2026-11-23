@@ -5,6 +5,9 @@ import { docShiftDelta } from './rooms'
 import { blankArea, clampArea, ghostRooms } from './traceSession'
 import { useDocStore } from './useDocStore'
 import { useEditStore } from './useEditStore'
+import { serializeDocument } from '../io/persist'
+import { parseDocument } from '../io/validate'
+import { OVERLAP_MESSAGE } from '../trace/trace'
 import { useTraceStore } from './useTraceStore'
 import { useUiStore } from './useUiStore'
 
@@ -96,5 +99,156 @@ describe('docShiftDelta', () => {
     const a = [room('r1', rect(0, 0, 300, 200))]
     expect(docShiftDelta(a, [room('r1', rect(210, 0, 510, 200))])).toEqual([210, 0])
     expect(docShiftDelta(a, a)).toEqual([0, 0])
+  })
+})
+
+// ---- Task 4: 방 확정 경로 ----
+const doc = useDocStore.getState
+const arm = (pts: Point2[], extra: Partial<ReturnType<typeof t>> = {}) =>
+  useTraceStore.setState({ active: true, scale: 1, corners: pts, ...extra })
+const closeOk = (pts: Point2[], extra: Partial<ReturnType<typeof t>> = {}) => {
+  arm(pts, extra)
+  expect(t().closeTrace()).toBe(true)
+}
+
+describe('commitTrace replace -> add', () => {
+  it('첫 방 replace, 이어 add. Undo는 방당 1단계', () => {
+    t().start()
+    closeOk(rect(100, 100, 400, 300))
+    expect(t().commitTrace(240, true, true)).toBe(true)
+    expect(doc().rooms).toHaveLength(1)
+    expect(doc().rooms[0].points).toEqual(rect(0, 0, 300, 200))
+    expect(t().offset).toEqual([-100, -100])
+    expect(t().mode).toBe('add')
+    expect(t().active).toBe(true)
+    expect(t().corners).toEqual([])
+    expect(t().confirmed).toBe(1)
+    closeOk(rect(410, 100, 610, 300))
+    expect(t().commitTrace(240, true, false)).toBe(true)
+    expect(doc().rooms[1].points).toEqual(rect(310, 0, 510, 200))
+    expect(useUiStore.getState().activeRoomId).toBe(doc().rooms[1].id)
+    expect(t().active).toBe(false)
+    expect(useDocStore.temporal.getState().pastStates).toHaveLength(2)
+    useDocStore.temporal.getState().undo()
+    expect(doc().rooms).toHaveLength(1)
+  })
+  it('next=true는 이미지·축척·기준선·offset·ortho를 유지한다', () => {
+    t().start()
+    t().setOrtho(false)
+    closeOk(rect(100, 100, 400, 300), { baseline: [[0, 0], [10, 0]], candidate: [[1, 1]], selected: 0, lengthError: 'x', image: img })
+    t().commitTrace(250, true, true)
+    expect(t().image).toEqual(img)
+    expect(t().scale).toBe(1)
+    expect(t().baseline).toEqual([[0, 0], [10, 0]])
+    expect(t().ortho).toBe(false)
+    expect(t().lastHeight).toBe(250)
+    expect([t().closed, t().pendingRoom, t().error, t().selected, t().candidate, t().lengthError]).toEqual([false, null, null, null, null, null])
+  })
+  it('소수 offset에서도 방 간격이 정확하다', () => {
+    useUiStore.setState({ snapEnabled: false })
+    t().start()
+    closeOk(rect(10.4, 10.4, 310.4, 210.4))
+    t().commitTrace(240, true, true)
+    closeOk(rect(320.4, 10.4, 520.4, 210.4))
+    t().commitTrace(240, true, true)
+    expect(doc().rooms[1].points).toEqual(rect(310, 0, 510, 200))
+  })
+  it('확정 결과는 저장 검증을 통과한다', () => {
+    t().start()
+    closeOk(rect(100, 100, 400, 300))
+    t().commitTrace(240, true, true)
+    closeOk(rect(410, 100, 610, 300))
+    t().commitTrace(240, true, true)
+    const d = doc()
+    expect(parseDocument(serializeDocument({ rooms: d.rooms, items: d.items })).ok).toBe(true)
+  })
+})
+
+describe('commitTrace add', () => {
+  it('기존 방 왼쪽(음수)에 확정하면 문서가 이동하고 offset이 누적된다', () => {
+    useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [{ ...createSample().items[0], position: [100, 0, 100] }] })
+    t().start('add')
+    closeOk(rect(-210, 0, -10, 200))
+    expect(t().commitTrace(240, true, true)).toBe(true)
+    expect(doc().rooms[0].points).toEqual(rect(210, 0, 510, 200))
+    expect(doc().rooms[1].points).toEqual(rect(0, 0, 200, 200))
+    expect(doc().items[0].position[0]).toBe(310)
+    expect(t().offset).toEqual([210, 0])
+    expect(ghostRooms(t(), doc().rooms)[0]).toEqual(rect(0, 0, 300, 200))
+    closeOk(rect(310, 0, 510, 200))
+    t().commitTrace(240, true, true)
+    expect(doc().rooms[2].points).toEqual(rect(520, 0, 720, 200))
+    useDocStore.temporal.getState().undo()
+    expect(doc().rooms).toHaveLength(2)
+    expect(doc().rooms[0].points).toEqual(rect(210, 0, 510, 200))
+    expect(doc().items[0].position[0]).toBe(310)
+  })
+  it.each([false, true])('add + 이미지 첫 방(반전=%s)은 활성 방 오른쪽에 놓이고 offset이 이어진다', (rev) => {
+    useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
+    useUiStore.setState({ activeRoomId: 'r1' })
+    t().start('add')
+    t().setImage(img)
+    const first = rect(50, 50, 250, 150)
+    closeOk(rev ? [...first].reverse() : first, { scale: 1 })
+    expect(t().commitTrace(240, true, true)).toBe(true)
+    const xs = doc().rooms[1].points.map((p) => p[0])
+    const zs = doc().rooms[1].points.map((p) => p[1])
+    expect([Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)]).toEqual([310, 510, 0, 100])
+    closeOk(rect(260, 50, 460, 150))
+    t().commitTrace(240, true, true)
+    expect(doc().rooms[2].points).toEqual(rect(520, 0, 720, 100))
+  })
+  it('placeRightOf 결과가 겹치면 거부하고 세션을 유지한다', () => {
+    useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200)), room('r2', rect(310, 0, 510, 200))], items: [] })
+    useUiStore.setState({ activeRoomId: 'r1' })
+    t().start('add')
+    t().setImage(img)
+    closeOk(rect(50, 50, 250, 150), { scale: 1 })
+    expect(t().commitTrace(240, true, true)).toBe(false)
+    expect(useUiStore.getState().notice).toContain('방을 추가하지 못했습니다')
+    expect(doc().rooms).toHaveLength(2)
+    expect(t().confirmed).toBe(0)
+    expect(t().offset).toBeNull()
+    expect(t().closed).toBe(true)
+  })
+  it('방 20개면 확정 실패 + notice', () => {
+    const rooms = Array.from({ length: 20 }, (_, i) => room(`r${i + 1}`, rect(i * 110, 0, i * 110 + 100, 100)))
+    useDocStore.setState({ rooms, items: [] })
+    t().start('add')
+    closeOk(rect(0, 500, 100, 600))
+    expect(t().commitTrace(240, true, true)).toBe(false)
+    expect(useUiStore.getState().notice).toContain('20')
+    expect(t().confirmed).toBe(0)
+    expect(doc().rooms).toHaveLength(20)
+  })
+})
+
+describe('겹침 닫기와 취소', () => {
+  it('겹치면 닫히지 않고 overlapWith를 담는다', () => {
+    useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
+    t().start('add')
+    arm(rect(100, 100, 400, 300))
+    expect(t().closeTrace()).toBe(false)
+    expect(t().error?.message).toBe(OVERLAP_MESSAGE)
+    expect(t().error?.overlapWith).toEqual([0])
+    expect(t().closed).toBe(false)
+  })
+  it('닫은 뒤 점 삭제로 겹치면 막히고 점이 복원된다', () => {
+    useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
+    t().start('add')
+    closeOk([[310, -100], [510, -100], [510, 300], [-100, 300], [-100, 250], [310, 250]])
+    const before = t().corners
+    expect(t().deleteTracePoint(5)).toBe(false)
+    expect(t().corners).toEqual(before)
+    expect(t().closed).toBe(true)
+  })
+  it('cancel은 확정된 방을 남긴다', () => {
+    t().start()
+    closeOk(rect(100, 100, 400, 300))
+    t().commitTrace(240, true, true)
+    arm([[1, 1], [5, 1]])
+    t().cancel()
+    expect(doc().rooms).toHaveLength(1)
+    expect(t().active).toBe(false)
   })
 })
