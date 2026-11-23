@@ -1,7 +1,7 @@
 // 이동·회전 순수 로직. 1unit=1cm, 월드 (x, z) = 방 좌표 (x, z).
 import { Plane, Vector3, type Ray } from 'three'
-import type { Item, Point2, Vec3 } from '../store/types'
-import { nearestWall } from './geometry'
+import type { Item, Point2, Room, Vec3 } from '../store/types'
+import { nearestWallIn } from './geometry'
 
 /** 이동 스냅 단위(AC-10-1). 스냅을 끄면(AC-10-2) 1cm. */
 export const SNAP_CM = 10
@@ -20,21 +20,22 @@ export function groundPoint(ray: Ray): Point2 | null {
 }
 
 /**
- * 가장 가까운 벽 위로 투영. 벽 시작점부터 거리를 step으로 스냅하고,
+ * 모든 방에서 가장 가까운 벽 위로 투영. 벽 시작점부터 거리를 step으로 스냅하고,
  * 폭 width가 벽 구간 안에 들어가게 clamp한다(벽이 폭보다 짧으면 벽 중앙).
  */
-export function projectOntoWall(points: Point2[], x: number, z: number, width: number, step = SNAP_CM): Point2 {
-  const w = nearestWall(points, x, z)
-  if (!w) return [x, z]
+export function projectOntoWall(rooms: Room[], x: number, z: number, width: number, step = SNAP_CM): Point2 {
+  const host = nearestWallIn(rooms, x, z)
+  if (!host) return [x, z]
+  const w = host.wall
   const half = width / 2
   const s = w.len < width ? w.len / 2 : Math.min(Math.max(snap(w.s, step), half), w.len - half)
   return [w.a[0] + w.dir[0] * s, w.a[1] + w.dir[1] * s]
 }
 
 /** (x, z)로 옮길 때 저장할 position. 가구는 스냅만(방 밖도 허용, AC-11-2), 고정 요소는 벽 위로. y는 항상 0. */
-export function moveTarget(item: Item, x: number, z: number, points: Point2[], step = SNAP_CM): Vec3 {
+export function moveTarget(item: Item, x: number, z: number, rooms: Room[], step = SNAP_CM): Vec3 {
   if (item.type === 'FIXTURE') {
-    const [px, pz] = projectOntoWall(points, x, z, item.size[0], step)
+    const [px, pz] = projectOntoWall(rooms, x, z, item.size[0], step)
     return [px, 0, pz]
   }
   return [snap(x, step), 0, snap(z, step)]

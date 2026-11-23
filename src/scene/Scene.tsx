@@ -14,6 +14,7 @@ import {
   furnitureMaterialProps,
   furnitureTransform,
   nearestWallIn,
+  roomBounds,
   roomsBounds,
   wallBand,
   type Bounds,
@@ -91,11 +92,11 @@ function Floor({ room, active, onActivate }: { room: Room; active: boolean; onAc
 }
 
 // labelRoot: drei Html 기본 대상(events.connected)이 마운트 직후 바뀌며 첫 라벨 root가 비워지는 경쟁을 피하려고 고정 DOM을 넘긴다.
-function Furniture({ item, points, labelRoot, warned, showDims }: { item: Item; points: Point2[]; labelRoot: RefObject<HTMLDivElement | null>; warned: boolean; showDims: boolean }) {
+function Furniture({ item, labelRoot, warned, showDims }: { item: Item; labelRoot: RefObject<HTMLDivElement | null>; warned: boolean; showDims: boolean }) {
   const { position, rotation } = furnitureTransform(item)
   const [w, h, d] = item.size
   const selected = useUiStore((s) => s.selectedId === item.id)
-  const bind = useItemDrag(item.id, points)
+  const bind = useItemDrag(item.id)
   return (
     <group position={position} rotation={rotation}>
       <mesh {...bind()} onClick={stop}>
@@ -131,7 +132,7 @@ function Fixture({ item, rooms, points, warned }: { item: Item; rooms: Room[]; p
   const { position, rotationY } = fixtureTransformIn(rooms, item)
   const kind = fixtureKind(item.modelType) ?? 'DOOR'
   const selected = useUiStore((s) => s.selectedId === item.id)
-  const bind = useItemDrag(item.id, hostPoints)
+  const bind = useItemDrag(item.id)
   // 벽보다 2cm 두껍게 해 양면에서 보이게 한다.
   return (
     <>
@@ -171,6 +172,8 @@ export default function Scene() {
   const warnings = useWarnings()
   const warned = useMemo(() => warnedIds(warnings), [warnings])
   const b = roomsBounds(rooms)
+  const ab = roomBounds(active.points)
+  const eye: Point2 = [(ab.minX + ab.maxX) / 2, (ab.minZ + ab.maxZ) / 2]
   const span = Math.max(b.maxX - b.minX, b.maxZ - b.minZ)
   const labelRoot = useRef<HTMLDivElement>(null)
   const editing = useEditStore((s) => s.editing)
@@ -208,7 +211,7 @@ export default function Scene() {
       }}
       onPointerMissed={() => useUiStore.getState().select(null)}>
       <color attach="background" args={['#eceff1']} />
-      <CameraRig mode={cameraMode} bounds={camBounds} />
+      <CameraRig mode={cameraMode} bounds={camBounds} eye={eye} />
       <ambientLight intensity={1.2} />
       <directionalLight position={[b.maxX + span, span * 2, b.maxZ]} intensity={1.5} />
       {rooms.map((r) => (
@@ -232,7 +235,7 @@ export default function Scene() {
       {editing && cameraMode === '2D' && <CornerEditLayer key={active.id} room={active} />}
       {items.map((it) =>
         it.type === 'FURNITURE' ? (
-          <Furniture key={it.id} item={it} points={active.points} labelRoot={labelRoot} warned={warned.has(it.id)} showDims={showDims} />
+          <Furniture key={it.id} item={it} labelRoot={labelRoot} warned={warned.has(it.id)} showDims={showDims} />
         ) : (
           <Fixture key={it.id} item={it} rooms={rooms} points={active.points} warned={warned.has(it.id)} />
         ),

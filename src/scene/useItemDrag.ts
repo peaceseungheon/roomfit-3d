@@ -15,7 +15,7 @@ type Controls = { enabled: boolean } | null
  * 선택 안 된 항목은 선택만 한다(카메라 조작 유지, AC-10-4). 위치는 y=0 바닥 레이캐스트 + 잡은 지점 오프셋.
  * 드래그 중 OrbitControls를 끄고, 끝나면 Undo 1단계로 커밋(dragSession).
  */
-export function useItemDrag(id: string, points: Point2[]) {
+export function useItemDrag(id: string) {
   const get = useThree((s) => s.get)
   const offset = useRef<Point2>([0, 0])
   const active = useRef(false)
@@ -80,14 +80,15 @@ export function useItemDrag(id: string, points: Point2[]) {
         if (mode.current !== 'drag') return
         const e = event as unknown as ThreeEvent<PointerEvent> & { ray?: Ray }
         e.stopPropagation?.()
-        const item = useDocStore.getState().items.find((it) => it.id === id)
+        const state = useDocStore.getState()
+        const item = state.items.find((it) => it.id === id)
         const p = e.ray ? groundPoint(e.ray) : null
         if (first && item && p) {
           offset.current = [item.position[0] - p[0], item.position[2] - p[1]]
           active.current = beginDrag(id)
         }
         if (active.current && item && p) {
-          active.current = moveDrag(moveTarget(item, p[0] + offset.current[0], p[1] + offset.current[1], points, snapStep(useUiStore.getState().snapEnabled)))
+          active.current = moveDrag(moveTarget(item, p[0] + offset.current[0], p[1] + offset.current[1], state.rooms, snapStep(useUiStore.getState().snapEnabled)))
         }
         if (last) {
           if (active.current) {

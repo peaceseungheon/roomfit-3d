@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { Ray, Vector3 } from 'three'
 import { createSample } from '../store/sample'
 import { useDocStore } from '../store/useDocStore'
-import type { Item, Point2 } from '../store/types'
+import type { Item, Point2, Room } from '../store/types'
 import { beginDrag, cancelDrag, endDrag, isDragging, moveDrag } from './dragSession'
 import { groundPoint, moveTarget, nextRotation, pressMode, projectOntoWall, snap } from './interaction'
 
 const rect: Point2[] = [[0, 0], [400, 0], [400, 300], [0, 300]]
 const diag: Point2[] = [[0, 0], [300, 0], [0, 400]] // 빗변 길이 500
+const room = (id: string, points: Point2[]): Room => ({ id, name: id, height: 230, points })
 const close = (a: number[], b: number[]) => a.forEach((v, i) => expect(v).toBeCloseTo(b[i]))
 
 describe('snap / groundPoint', () => {
@@ -25,31 +26,50 @@ describe('snap / groundPoint', () => {
 })
 
 describe('projectOntoWall', () => {
+  const r1 = [room('r1', rect)]
   it('가장 가까운 벽으로 붙고 벽 따라 10cm 스냅', () => {
-    expect(projectOntoWall(rect, 123, 20, 90)).toEqual([120, 0])
-    expect(projectOntoWall(rect, 390, 157, 90)).toEqual([400, 160])
+    expect(projectOntoWall(r1, 123, 20, 90)).toEqual([120, 0])
+    expect(projectOntoWall(r1, 390, 157, 90)).toEqual([400, 160])
   })
   it('폭이 벽 구간 밖으로 나가지 않게 clamp(모서리 근처)', () => {
-    expect(projectOntoWall(rect, 10, 5, 90)).toEqual([45, 0])
-    expect(projectOntoWall(rect, -50, -50, 90)).toEqual([45, 0])
+    expect(projectOntoWall(r1, 10, 5, 90)).toEqual([45, 0])
+    expect(projectOntoWall(r1, -50, -50, 90)).toEqual([45, 0])
   })
   it('벽이 폭보다 짧으면 벽 중앙', () => {
-    expect(projectOntoWall(rect, 380, 150, 500)).toEqual([400, 150])
+    expect(projectOntoWall(r1, 380, 150, 500)).toEqual([400, 150])
   })
   it('빗변 벽에서는 벽 위 거리로 스냅해 벽선 위에 남는다', () => {
-    const [x, z] = projectOntoWall(diag, 160, 210, 90) // 빗변 위 투영 s=252 → 250
+    const [x, z] = projectOntoWall([room('r1', diag)], 160, 210, 90) // 빗변 위 투영 s=252 → 250
     expect(x / 300 + z / 400).toBeCloseTo(1)
     close([x, z], [150, 200])
   })
 })
 
+describe('projectOntoWall 다중 방', () => {
+  const a = room('r1', rect)
+  const b = room('r2', [[420, 0], [820, 0], [820, 300], [420, 300]])
+  it('커서가 있는 방의 벽으로 투영', () => {
+    expect(projectOntoWall([a, b], 430, 150, 90)).toEqual([420, 150]) // B 서쪽 벽
+    expect(projectOntoWall([a, b], 390, 150, 90)).toEqual([400, 150]) // A 동쪽 벽
+  })
+  it('두 방 벽 거리 동률(1cm 이내)이면 앞 방', () => {
+    const c = room('r2', [[404, 0], [804, 0], [804, 300], [404, 300]])
+    // x=402: A 동쪽(400)·B 서쪽(404)까지 2cm 동률 → 앞 방
+    expect(projectOntoWall([a, c], 402, 150, 90)).toEqual([400, 150])
+    expect(projectOntoWall([c, a], 402, 150, 90)).toEqual([404, 150])
+  })
+})
+
 describe('moveTarget / nextRotation', () => {
   const furn: Item = { id: 'f', type: 'FURNITURE', modelType: 'DESK', position: [0, 0, 0], rotation: [0, 0, 0], size: [120, 73, 60] }
+  const r1 = [room('r1', rect)]
   it('가구는 스냅만, 방 밖도 허용, y=0', () => {
-    expect(moveTarget(furn, -33, 512, rect)).toEqual([-30, 0, 510])
+    expect(moveTarget(furn, -33, 512, r1)).toEqual([-30, 0, 510])
+    // 방이 둘이어도 가구는 방 밖 좌표를 그대로 스냅한다.
+    expect(moveTarget(furn, -33, 512, [room('r1', rect), room('r2', [[420, 0], [820, 0], [820, 300], [420, 300]])])).toEqual([-30, 0, 510])
   })
   it('고정 요소는 벽 위로', () => {
-    expect(moveTarget({ ...furn, type: 'FIXTURE', size: [90, 210, 5] }, 200, 290, rect)).toEqual([200, 0, 300])
+    expect(moveTarget({ ...furn, type: 'FIXTURE', size: [90, 210, 5] }, 200, 290, r1)).toEqual([200, 0, 300])
   })
   it('90° 단위, 0~359', () => {
     expect([0, 90, 270, 45, -90].map(nextRotation)).toEqual([90, 180, 0, 135, 0])

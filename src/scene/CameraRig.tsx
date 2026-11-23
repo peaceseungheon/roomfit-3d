@@ -2,6 +2,7 @@ import { OrbitControls, OrthographicCamera, PerspectiveCamera } from '@react-thr
 import { useThree } from '@react-three/fiber'
 import { MOUSE, TOUCH } from 'three'
 import type { CameraMode } from '../store/useUiStore'
+import type { Point2 } from '../store/types'
 import type { Bounds } from './geometry'
 
 /** 1인칭 눈높이(cm), AC-12-2 */
@@ -12,8 +13,9 @@ export const EYE_HEIGHT = 160
  * - 2D: 위에서 내려다보는 직교. 화면 위 = -z(정면 +z가 아래, AC-08-5). 드래그 = 이동.
  * - QUARTER: 대각선 위 원근, 궤도 회전.
  * - FIRST_PERSON: 눈높이 고정. 1cm 앞 target을 도는 방식으로 드래그 = 시선 회전. 위치 이동은 Floor 클릭.
+ * 2D·QUARTER는 문서 전체 bounds 중앙, FIRST_PERSON 시작점은 활성 방 bounds 중앙(eye).
  */
-export default function CameraRig({ mode, bounds: b }: { mode: CameraMode; bounds: Bounds }) {
+export default function CameraRig({ mode, bounds: b, eye }: { mode: CameraMode; bounds: Bounds; eye: Point2 }) {
   const size = useThree((s) => s.size)
   const cx = (b.minX + b.maxX) / 2
   const cz = (b.minZ + b.maxZ) / 2
@@ -44,14 +46,14 @@ export default function CameraRig({ mode, bounds: b }: { mode: CameraMode; bound
     )
   }
   if (mode === 'FIRST_PERSON') {
-    // ponytail: 시작 위치는 외곽 범위 중앙. ㄱ자에서 잘린 쪽 중앙이 방 밖이 될 수 있으면 다각형 내부 점으로 바꾼다.
+    const [ex, ez] = eye
     return (
       <>
-        <PerspectiveCamera key="cam-fp" makeDefault fov={70} near={1} far={20000} position={[cx, EYE_HEIGHT, cz]} />
+        <PerspectiveCamera key="cam-fp" makeDefault fov={70} near={1} far={20000} position={[ex, EYE_HEIGHT, ez]} />
         <OrbitControls
           key="ctl-fp"
           makeDefault
-          target={[cx, EYE_HEIGHT, cz - 1]}
+          target={[ex, EYE_HEIGHT, ez - 1]}
           enableZoom={false}
           enablePan={false}
           rotateSpeed={-0.4}

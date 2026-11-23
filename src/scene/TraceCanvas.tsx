@@ -211,7 +211,7 @@ export default function TraceCanvas() {
       <Canvas>
         <color attach="background" args={['#eceff1']} />
         {/* 2D 고정(회전 불가, 이동·확대 허용). 이미지·축척이 바뀌면 다시 맞춘다(key). */}
-        <CameraRig key={image ? `${image.url}:${r.width}:${r.depth}` : 'blank'} mode="2D" bounds={bounds} />
+        <CameraRig key={image ? `${image.url}:${r.width}:${r.depth}` : 'blank'} mode="2D" bounds={bounds} eye={[(bounds.minX + bounds.maxX) / 2, (bounds.minZ + bounds.maxZ) / 2]} />
         {image ? <ImagePlane url={image.url} width={r.width} depth={r.depth} /> : <BlankArea />}
         <TraceMarks />
         <Preview labelRoot={labelRoot} />

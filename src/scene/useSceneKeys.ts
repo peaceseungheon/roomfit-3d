@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { getActiveRoom } from '../store/activeRoom'
 import { useDocStore } from '../store/useDocStore'
 import { useTraceStore } from '../store/useTraceStore'
 import { useUiStore, type CameraMode } from '../store/useUiStore'
@@ -44,7 +43,7 @@ export function useSceneKeys() {
       e.preventDefault()
       const [x, , z] = item.position
       const step = snapStep(useUiStore.getState().snapEnabled)
-      const position = moveTarget(item, x + dir[0] * step, z + dir[1] * step, getActiveRoom().points, step)
+      const position = moveTarget(item, x + dir[0] * step, z + dir[1] * step, doc.rooms, step)
       // 벽 끝 등에서 제자리면 빈 Undo 단계를 만들지 않는다.
       if (position.every((v, i) => v === item.position[i])) return
       doc.updateItem(item.id, { position })
