@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useDocStore } from '../store/useDocStore'
 import { selectCanClose, selectIsBlank, traceStep, useTraceStore, type TraceStep } from '../store/useTraceStore'
-import { TRACE_DEFAULT_HEIGHT } from '../trace/trace'
 import ConfirmDialog from './ConfirmDialog'
+import TraceConfirm from './TraceConfirm'
 
 const STEPS: [TraceStep[], string][] = [
   [['upload'], '① 업로드'],
@@ -90,6 +90,10 @@ function DrawTools() {
   const ortho = useTraceStore((s) => s.ortho)
   const count = useTraceStore((s) => s.corners.length)
   const err = useTraceStore((s) => s.lengthError)
+  const ghostOffset = useTraceStore((s) => s.offset !== null)
+  const hasRooms = useDocStore((s) => s.rooms.length > 0)
+  const hasGhosts = ghostOffset && hasRooms
+  const neighborSnap = useTraceStore((s) => s.neighborSnap)
   const [len, setLen] = useState('')
   const add = () => {
     if (useTraceStore.getState().addTracePointByLength(/^\d+(\.\d+)?$/.test(len.trim()) ? Number(len) : NaN)) setLen('')
@@ -99,6 +103,14 @@ function DrawTools() {
       <label className="radio-label">
         <input type="checkbox" checked={ortho} onChange={(e) => useTraceStore.getState().setOrtho(e.target.checked)} /> 수평·수직 고정
       </label>
+      {hasGhosts && (
+        <>
+          <label className="radio-label">
+            <input type="checkbox" checked={neighborSnap} onChange={(e) => useTraceStore.getState().setNeighborSnap(e.target.checked)} /> 이웃 방에 붙이기
+          </label>
+          <p className="hint">Shift를 누르고 있으면 이웃 방 스냅이 꺼집니다</p>
+        </>
+      )}
       <div className="field">
         <label htmlFor={id}>다음 점까지 길이</label>
         <input
@@ -206,42 +218,6 @@ function SuggestPanel() {
   )
 }
 
-function Confirm() {
-  const hasItems = useDocStore((s) => s.items.length > 0)
-  const [height, setHeight] = useState(String(TRACE_DEFAULT_HEIGHT))
-  const [keep, setKeep] = useState(true)
-  const h = /^\d+$/.test(height.trim()) ? Number(height) : NaN
-  const bad = !(h >= 180 && h <= 400)
-  return (
-    <div>
-      <div className="field">
-        <label htmlFor="trace-h">천장고</label>
-        <input id="trace-h" inputMode="numeric" value={height} aria-invalid={bad} onChange={(e) => setHeight(e.target.value)} />
-        <span className="unit">cm</span>
-        {bad && (
-          <span role="alert" className="field-error">
-            180~400 사이 정수
-          </span>
-        )}
-      </div>
-      {hasItems && (
-        <fieldset className="keep">
-          <legend>기존 가구</legend>
-          {([true, false] as const).map((k) => (
-            <label key={String(k)} className="radio-label">
-              <input type="radio" name="trace-keep" checked={keep === k} onChange={() => setKeep(k)} /> {k ? '유지' : '삭제'}
-            </label>
-          ))}
-          <p className="hint">되돌리기(Undo)로 복구할 수 있습니다.</p>
-        </fieldset>
-      )}
-      <button type="button" disabled={bad} onClick={() => useTraceStore.getState().commitTrace(h, keep)}>
-        방 생성
-      </button>
-    </div>
-  )
-}
-
 const FOCUSABLE = 'button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
 
 /**
@@ -262,9 +238,23 @@ function Dialog({ stage }: { stage?: ReactNode }) {
     if (el) (el.querySelector<HTMLElement>(FOCUSABLE) ?? el).focus()
     return () => (prev?.isConnected ? prev : document.querySelector<HTMLElement>('[data-modal-fallback]'))?.focus()
   }, [])
+  const image = useTraceStore((s) => s.image)
+  const step = useTraceStore(traceStep)
+  const count = useTraceStore((s) => s.corners.length)
+  const canClose = useTraceStore(selectCanClose)
+  const error = useTraceStore((s) => s.error)
+  const scaled = useTraceStore((s) => s.scale !== null)
+  const blank = useTraceStore(selectIsBlank)
+  const confirmed = useTraceStore((s) => s.confirmed)
+  const locked = confirmed > 0 // 첫 방 확정 뒤에는 이미지·축척·기준선을 바꿀 수 없다
+  const [askBlank, setAskBlank] = useState(false)
+  const [askLeave, setAskLeave] = useState(false)
+  const t = useTraceStore.getState()
+  // 확정한 방이 있고 진행 중인 방이 있을 때만 확인한다. 방 1개 흐름(confirmed 0)은 즉시 취소.
+  const leave = () => (confirmed >= 1 && count >= 3 ? setAskLeave(true) : t.cancel())
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     e.nativeEvent.stopPropagation() // 에디터 단축키가 문서를 바꾸지 않게
-    if (e.key === 'Escape') return useTraceStore.getState().cancel() // 취소 버튼과 같은 동작(PRD에 별도 확인 규정 없음)
+    if (e.key === 'Escape') return leave() // 끝내기 버튼과 같은 동작
     if (e.key !== 'Tab' || !ref.current) return
     const els = [...ref.current.querySelectorAll<HTMLElement>(FOCUSABLE)]
     if (!els.length) return
@@ -278,15 +268,6 @@ function Dialog({ stage }: { stage?: ReactNode }) {
       first.focus()
     }
   }
-  const image = useTraceStore((s) => s.image)
-  const step = useTraceStore(traceStep)
-  const count = useTraceStore((s) => s.corners.length)
-  const canClose = useTraceStore(selectCanClose)
-  const error = useTraceStore((s) => s.error)
-  const scaled = useTraceStore((s) => s.scale !== null)
-  const blank = useTraceStore(selectIsBlank)
-  const [askBlank, setAskBlank] = useState(false)
-  const t = useTraceStore.getState()
   const steps = blank ? BLANK_STEPS : STEPS
   return (
     <div ref={ref} className="trace-screen" role="dialog" aria-modal="true" aria-label="평면도로 방 만들기" tabIndex={-1} onKeyDown={onKeyDown}>
@@ -299,20 +280,21 @@ function Dialog({ stage }: { stage?: ReactNode }) {
             </li>
           ))}
         </ol>
+        {confirmed >= 1 && <span aria-live="polite">방 {confirmed}개 확정</span>}
       </header>
       <div className="trace-body">
         <div className="trace-stage" data-trace-stage>
           {stage ?? (image ? <img src={image.url} alt="평면도" /> : null)}
         </div>
         <aside className="trace-side">
-          <p>{(blank ? BLANK_GUIDE : GUIDE)[step]}</p>
-          {blank && step !== 'closed' && <BackgroundOption />}
-          {image && step !== 'closed' && <Upload />}
+          <p>{confirmed >= 1 && step !== 'closed' ? `방 ${confirmed}개 확정. 다음 방의 모서리를 찍거나 [끝내기]를 누르세요.` : (blank ? BLANK_GUIDE : GUIDE)[step]}</p>
+          {blank && !locked && step !== 'closed' && <BackgroundOption />}
+          {image && !locked && step !== 'closed' && <Upload />}
           {image && (
             <>
               {step !== 'closed' && <SuggestPanel />}
-              {step !== 'closed' && <BaselineForm />}
-              {step !== 'closed' && (
+              {!locked && step !== 'closed' && <BaselineForm />}
+              {!locked && step !== 'closed' && (
                 <button type="button" onClick={() => setAskBlank(true)}>
                   배경 없이 그리기
                 </button>
@@ -328,7 +310,7 @@ function Dialog({ stage }: { stage?: ReactNode }) {
                 <button type="button" disabled={count === 0 && step !== 'closed'} onClick={step === 'closed' ? t.reopenTrace : t.undoTracePoint}>
                   {step === 'closed' ? '다시 편집' : '되돌리기'}
                 </button>
-                {scaled && (
+                {scaled && !locked && (
                   <button type="button" onClick={t.redoBaseline}>
                     기준선 다시 찍기
                   </button>
@@ -338,7 +320,7 @@ function Dialog({ stage }: { stage?: ReactNode }) {
                 </button>
               </div>
               {step === 'closed' && <DeleteTool />}
-              {step === 'closed' && <Confirm />}
+              {step === 'closed' && <TraceConfirm />}
             </>
           )}
           {blank && (
@@ -358,7 +340,7 @@ function Dialog({ stage }: { stage?: ReactNode }) {
                 </button>
               </div>
               {step === 'closed' && <DeleteTool />}
-              {step === 'closed' && <Confirm />}
+              {step === 'closed' && <TraceConfirm />}
             </>
           )}
           {askBlank && (
@@ -374,9 +356,14 @@ function Dialog({ stage }: { stage?: ReactNode }) {
               <p>배경 이미지와 찍은 점이 모두 지워지고 빈 캔버스로 돌아갑니다. 계속할까요?</p>
             </ConfirmDialog>
           )}
+          {askLeave && (
+            <ConfirmDialog title="끝내기" confirmLabel="끝내기" onConfirm={t.cancel} onCancel={() => setAskLeave(false)}>
+              <p>진행 중인 방은 버려집니다. 이미 확정한 방은 유지됩니다. 끝낼까요?</p>
+            </ConfirmDialog>
+          )}
           <div className="row end">
-            <button type="button" onClick={t.cancel}>
-              취소
+            <button type="button" onClick={leave}>
+              {confirmed >= 1 ? '끝내기' : '취소'}
             </button>
           </div>
         </aside>

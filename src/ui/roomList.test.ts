@@ -97,12 +97,12 @@ describe('RoomList rendering', () => {
 })
 
 describe('RoomDialog modes', () => {
-  it('add mode hides keep-items and tracing entry points', () => {
+  it('add mode hides keep-items and shows the draw button', () => {
     const out = html(createElement(RoomDialog, { mode: 'add', onClose: () => {} }))
     expect(out).toContain('방 추가')
     expect(out).not.toContain('기존 가구')
-    expect(out).not.toContain('그려서 만들기')
-    expect(out).toContain('다중 방 그리기는 다음 단계에서 지원합니다')
+    expect(out).toContain('그려서 만들기(평면도 배경 선택 가능)')
+    expect(out).not.toContain('다음 단계에서')
   })
   it('replace mode keeps the existing create inputs and buttons', () => {
     const out = html(createElement(RoomDialog, { onClose: () => {} }))

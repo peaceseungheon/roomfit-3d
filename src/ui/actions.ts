@@ -4,6 +4,7 @@ import { isDragging } from '../scene/dragSession'
 import { findCatalog } from '../store/catalog'
 import { getActiveRoom } from '../store/activeRoom'
 import { useDocStore } from '../store/useDocStore'
+import { useTraceStore } from '../store/useTraceStore'
 import { useUiStore } from '../store/useUiStore'
 import type { DocData } from '../store/types'
 import { makeFixture } from './fixturePlacement'
@@ -11,11 +12,13 @@ import { makeDimensionBox, makeDuplicate, makeFromCatalog } from './placement'
 
 const temporal = () => useDocStore.temporal.getState()
 
+// 트레이싱 중 문서 Undo/Redo가 확정한 방을 되돌리면 offset이 어긋나므로 막는다.
+const blocked = () => isDragging() || useTraceStore.getState().active
 export const undo = () => {
-  if (!isDragging()) temporal().undo()
+  if (!blocked()) temporal().undo()
 }
 export const redo = () => {
-  if (!isDragging()) temporal().redo()
+  if (!blocked()) temporal().redo()
 }
 
 export function useCanUndoRedo() {

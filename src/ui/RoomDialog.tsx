@@ -84,21 +84,17 @@ export default function RoomDialog({ onClose, mode = 'replace' }: Props) {
             <p className="hint">되돌리기(Undo)로 복구할 수 있습니다. 방 밖이 된 가구는 경고로 표시됩니다.</p>
           </fieldset>
         )}
-        {add ? (
-          <p className="hint">다중 방 그리기는 다음 단계에서 지원합니다</p>
-        ) : (
-          <div className="row">
-            <button
-              type="button"
-              onClick={() => {
-                useTraceStore.getState().start()
-                onClose()
-              }}
-            >
-              그려서 만들기(평면도 배경 선택 가능)
-            </button>
-          </div>
-        )}
+        <div className="row">
+          <button
+            type="button"
+            onClick={() => {
+              useTraceStore.getState().start(mode)
+              onClose()
+            }}
+          >
+            그려서 만들기(평면도 배경 선택 가능)
+          </button>
+        </div>
         <div className="row end">
           <button type="button" onClick={onClose}>
             취소
