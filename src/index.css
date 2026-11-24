@@ -42,7 +42,7 @@ button.primary:hover:not(:disabled), button[type='submit']:hover:not(:disabled) 
 .seg button:only-child { border-radius: var(--radius); }
 /* 네이비 바 위 컨트롤: 반투명 윤곽. 켜짐은 앰버 */
 .topbar > .seg button, .topbar > button, .topbar .menu-wrap > button { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.35); color: #fff; }
-.topbar > .seg button:hover:not(:disabled), .topbar > button:hover:not(:disabled), .topbar .menu-wrap > button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.18); border-color: #fff; }
+.topbar > .seg button:hover:not(:disabled):not([aria-pressed='true']), .topbar > button:hover:not(:disabled):not([aria-pressed='true']), .topbar .menu-wrap > button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.18); border-color: #fff; }
 .topbar > .seg button[aria-pressed='true'], .topbar > button[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--ink); }
 
 /* 폼 */

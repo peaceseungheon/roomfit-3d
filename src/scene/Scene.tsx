@@ -127,8 +127,8 @@ function WallDims({ room, active, labelRoot }: { room: Room; active: boolean; la
   ))
 }
 
-/** 활성 방의 가로·세로 치수선(분양 평면도의 치수 체인). 끝 눈금 + cm 칩. 1인칭에서는 그리지 않는다. */
-function RoomChains({ room, labelRoot }: { room: Room; labelRoot: RefObject<HTMLDivElement | null> }) {
+/** 활성 방의 가로·세로 치수선(분양 평면도의 치수 체인). 끝 눈금 + cm 칩. 1인칭에서는 그리지 않고, 칩은 2D 벽 치수 라벨이 켜지면 겹치므로 숨긴다. */
+function RoomChains({ room, labelRoot, chips }: { room: Room; labelRoot: RefObject<HTMLDivElement | null>; chips: boolean }) {
   const b = useMemo(() => roomBounds(room.points), [room.points])
   const y = 0.6
   const gap = 60 // 벽 바깥으로 띄우는 거리(cm)
@@ -147,8 +147,8 @@ function RoomChains({ room, labelRoot }: { room: Room; labelRoot: RefObject<HTML
   return (
     <>
       <Line segments points={pts} color="#0f3057" lineWidth={1.5} raycast={() => null} />
-      {chip(`${Math.round(b.maxX - b.minX)} cm`, (b.minX + b.maxX) / 2, zc)}
-      {chip(`${Math.round(b.maxZ - b.minZ)} cm`, xc, (b.minZ + b.maxZ) / 2)}
+      {chips && chip(`${Math.round(b.maxX - b.minX)} cm`, (b.minX + b.maxX) / 2, zc)}
+      {chips && chip(`${Math.round(b.maxZ - b.minZ)} cm`, xc, (b.minZ + b.maxZ) / 2)}
     </>
   )
 }
@@ -257,7 +257,7 @@ export default function Scene() {
       {rooms.map((r) => (
         <Walls key={`walls-${r.id}`} room={r} rooms={rooms} />
       ))}
-      {cameraMode !== 'FIRST_PERSON' && <RoomChains key={`chain-${active.id}`} room={active} labelRoot={labelRoot} />}
+      {cameraMode !== 'FIRST_PERSON' && <RoomChains key={`chain-${active.id}`} room={active} labelRoot={labelRoot} chips={!showDims} />}
       {showDims && rooms.map((r) => (
         <WallDims key={`dims-${r.id}`} room={r} active={r.id === active.id} labelRoot={labelRoot} />
       ))}
