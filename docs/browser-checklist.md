@@ -83,6 +83,6 @@
 - [ ] 방 추가 + 이미지 첫 방이 활성 방 오른쪽 10cm에 붙고 이후 윤곽·스냅이 나타난다
 
 ## 운영자 입력 (코드 결함 아님)
-- [ ] `src/affiliate/links.ts` 쿠팡 링크 15개
+- [ ] `src/affiliate/links.ts` 쿠팡 링크 42개(14종×3구간)
 - [ ] `src/landing/config.ts` 연락 이메일, 시행일, AdSense client/slot
 - [ ] 개인정보·동의 문구 법무 검토 (OPEN-04: 한국 CMP 요구, 도구형 앱 승인, 지급 기준액)

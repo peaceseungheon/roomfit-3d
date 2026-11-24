@@ -31,8 +31,8 @@ React + Vite + TypeScript, Three.js + R3F + drei, @use-gesture/react, Zustand + 
 - `elevation`(선택, cm): 바닥 위 높이. 창·콘센트 전용이며 문(DOOR*)과 가구에서는 무시한다. 없으면 기본값(창 90, 콘센트 30). 있으면 유한수이고 0 이상이어야 한다. version은 "1.1".
 - 1.0 저장본(`room`)도 읽을 수 있고 다음 저장은 1.1로 나간다.
 - 고정 요소 `modelType`: `DOOR_ENTRANCE`(현관문), `DOOR_SINGLE`(방문), `WINDOW`, `OUTLET`. 씬은 DOOR/WINDOW/OUTLET 접두어로 종류를 구분한다. 고정 요소 방향은 저장 `rotation`이 아니라 가장 가까운 벽 방향에서 유도한다.
-- 가구 15종과 고정 요소 4종의 `modelType`·한글명·기본 크기·기본 색은 `src/store/catalog.ts` 한 곳에서만 정의한다(PRD FR-08). 카탈로그 치수는 W×D×H, 저장 `size`는 [W,H,D]다.
-- 치수 박스(PRD FR-09): `type:"FURNITURE"`, `modelType:"DIMENSION_BOX"`. 카탈로그 15종에는 포함하지 않으며 `src/store/catalog.ts`의 `DIMENSION_BOX` 상수 한 곳에서 정의한다. 스키마는 일반 가구와 같다(`size`=[W,H,D], W·D 1~1000, H 1~500, version "1.1"). `name`은 선택(없으면 표시명 '치수 박스'), `color`는 선택(기본 `#90caf9`). 제휴 링크는 표시하지 않는다(AC-17-1). 반투명 렌더링은 씬이 modelType으로 판별한다(AC-08-8).
+- 가구 14종과 고정 요소 4종의 `modelType`·한글명·기본 크기·기본 색은 `src/store/catalog.ts` 한 곳에서만 정의한다(PRD FR-08). 카탈로그 치수는 W×D×H, 저장 `size`는 [W,H,D]다.
+- 치수 박스(PRD FR-09): `type:"FURNITURE"`, `modelType:"DIMENSION_BOX"`. 카탈로그 14종에는 포함하지 않으며 `src/store/catalog.ts`의 `DIMENSION_BOX` 상수 한 곳에서 정의한다. 스키마는 일반 가구와 같다(`size`=[W,H,D], W·D 1~1000, H 1~500, version "1.1"). `name`은 선택(없으면 표시명 '치수 박스'), `color`는 선택(기본 `#90caf9`). `category`(선택): 카탈로그 14종 modelType 중 하나, 없으면 '기타'(링크 없음). 제휴 링크는 이 종류와 폭으로 고른다(저장 version은 "1.1" 그대로). 반투명 렌더링은 씬이 modelType으로 판별한다(AC-08-8).
 - 불러오기 시 `version`, 필수 필드, 숫자 범위를 검증하고 실패하면 기존 상태를 유지한 채 오류를 표시한다.
 - Undo/Redo 대상은 `rooms`와 `items`뿐이다.
 
