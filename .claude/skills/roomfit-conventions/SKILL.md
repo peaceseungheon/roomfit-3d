@@ -8,7 +8,7 @@ description: RoomFit 3D의 공통 규약(단위 1unit=1cm, 좌표축, 10cm 스�
 이 규약은 `docs/기획서.md`에서 추린 것이다. 서로 다른 모듈이 같은 가정을 공유해야 경계에서 버그가 생기지 않으므로 코드보다 먼저 확인한다. `docs/PRD.md`가 기획서보다 우선하며(기획서 상단에 명시), 둘과 충돌하면 바꾸기 전에 사용자에게 먼저 알린다. 방 크기 상한 3000cm, 가구 최대 1000(W,D)/500(H)cm 등 수치는 PRD가 기준이다.
 
 ## 스택
-React + Vite + TypeScript, Three.js + R3F + drei, @use-gesture/react, Zustand + Zundo. 목록 밖 라이브러리는 추가 전에 이유를 보고한다.
+React + Vite + TypeScript, Three.js + R3F + drei, @use-gesture/react, Zustand + Zundo, vite-plugin-pwa(devDependency, PWA 매니페스트·service worker 생성, PRD FR-20). 목록 밖 라이브러리는 추가 전에 이유를 보고한다.
 
 ## 단위와 좌표
 - 모든 길이는 cm이고 Three.js 1unit = 1cm이다. m 단위나 스케일 변환을 쓰지 않는다.
