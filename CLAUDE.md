@@ -12,4 +12,6 @@
 | 날짜 | 변경 내용 | 대상 | 사유 |
 | --- | --- | --- | --- |
 | 2026-11-16 | Harness v2로 처음 구성 (에이전트 3, 스킬 2) | 전체 | - |
+| 2026-11-24 | business-reviewer 에이전트 추가(사업성·경쟁 벤치마크·차별화 분석 전용, 읽기+웹 조회만), roomfit-dev에 호출 경로 추가 | agents/business-reviewer, skills/roomfit-dev, 이 파일 | 사업성 검토 역할이 구현·QA 어느 에이전트에도 없었음 |
+| 2026-11-24 | business-reviewer 모델 opus → sonnet | agents/business-reviewer | 토큰 부족 |
 | 2026-11-18 | PRD·와이어프레임 반영: 가구 GLB→색상 블록, 방 상한 3000cm, 타겟 확대, 수익화(제휴·광고), 자동 모서리 제안 | conventions 스킬, app-engineer, 이 파일 | PRD가 기획서보다 우선 |
