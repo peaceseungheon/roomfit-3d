@@ -4,6 +4,7 @@ import { ADSENSE_CLIENT, ADSENSE_SLOT } from '../landing/config'
 import { downloadBlob, stampedName } from '../io/download'
 import { readImportFile } from '../io/importFile'
 import { serializeDocument } from '../io/persist'
+import { currentInstallMode, promptInstall } from '../pwa/install'
 import { isDragging } from '../scene/dragSession'
 import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
@@ -12,7 +13,7 @@ import { importDocument, resetToSample } from './actions'
 import ConfirmDialog from './ConfirmDialog'
 import { CheckIcon, MenuIcon, WarnIcon } from './icons'
 
-type Dlg = { kind: 'error'; lines: string[] } | { kind: 'import'; doc: DocData } | { kind: 'reset' }
+type Dlg = { kind: 'error'; lines: string[] } | { kind: 'import'; doc: DocData } | { kind: 'reset' } | { kind: 'ios' }
 
 function exportJson() {
   const { rooms, items } = useDocStore.getState()
@@ -80,6 +81,7 @@ export default function MenuButton() {
   const wrap = useRef<HTMLDivElement>(null)
   const toggle = useRef<HTMLButtonElement>(null)
   const file = useRef<HTMLInputElement>(null)
+  const installMode = open ? currentInstallMode() : 'hidden' // 메뉴를 열 때 판정(프롬프트는 그 사이 도착할 수 있다)
 
   useEffect(() => {
     if (!open) return
@@ -125,6 +127,9 @@ export default function MenuButton() {
             }}>JSON 불러오기</button>
           <button onClick={choose(capturePng)}>캡처(PNG)</button>
           <button onClick={choose(() => setDlg({ kind: 'reset' }))}>샘플로 초기화</button>
+          {installMode !== 'hidden' && (
+            <button onClick={choose(() => (installMode === 'ios' ? setDlg({ kind: 'ios' }) : void promptInstall()))}>앱으로 설치</button>
+          )}
           <ConsentToggle />
         </div>
       )}
@@ -137,6 +142,11 @@ export default function MenuButton() {
               <li key={`${i}-${l}`}>{l}</li>
             ))}
           </ul>
+        </ConfirmDialog>
+      )}
+      {dlg?.kind === 'ios' && (
+        <ConfirmDialog title="앱으로 설치" alertOnly info confirmLabel="닫기" onConfirm={() => setDlg(null)} onCancel={() => setDlg(null)}>
+          <p>브라우저의 공유 메뉴에서 &quot;홈 화면에 추가&quot;를 선택하세요.</p>
         </ConfirmDialog>
       )}
       {dlg?.kind === 'import' && (
