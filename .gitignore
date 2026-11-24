@@ -28,3 +28,8 @@ dist-ssr
 _workspace/
 .env
 .env.*
+
+# Impeccable 작업 산출물(스크린샷·리뷰·목업)
+.impeccable/shots/
+.impeccable/review/
+.impeccable/mocks/
