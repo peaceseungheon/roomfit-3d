@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-23T00:00:00Z",
+  "title": "Design System: RoomFit 3D",
+  "extensions": {
+    "colorMeta": {
+      "navy": { "role": "primary", "displayName": "Deep Drafting Navy", "canonical": "#0f3057", "tonalRamp": ["#05121f", "#0a2340", "#0f3057", "#33506f", "#4a6480", "#7e97b3", "#c9d6e3", "#eaf0f6"] },
+      "ink": { "role": "primary", "displayName": "Drafting Ink", "canonical": "#0f2a4a", "tonalRamp": ["#050f1b", "#0a1d35", "#0f2a4a", "#33506f", "#4a6480", "#7e97b3", "#c9d6e3", "#eaf0f6"] },
+      "accent": { "role": "secondary", "displayName": "Selection Amber", "canonical": "#f2a900", "tonalRamp": ["#4d3500", "#7a5600", "#c98f00", "#f2a900", "#f7c04a", "#fad37f", "#fdeec4", "#fff8e6"] },
+      "danger": { "role": "tertiary", "displayName": "Collision Red", "canonical": "#c62828", "tonalRamp": ["#3d0c0c", "#6b1414", "#a71d1d", "#c62828", "#e05a5a", "#f09494", "#fdecec", "#fff6f6"] },
+      "canvas": { "role": "neutral", "displayName": "Plan Blue", "canonical": "#eaf0f6", "tonalRamp": ["#4a6480", "#7e97b3", "#9fb3c8", "#c9d6e3", "#dde7f1", "#eaf0f6", "#f5f8fb", "#ffffff"] },
+      "surface": { "role": "neutral", "displayName": "Drawing Paper", "canonical": "#ffffff", "tonalRamp": ["#c9d6e3", "#dde7f1", "#eaf0f6", "#f5f8fb", "#fafcfd", "#ffffff", "#ffffff", "#ffffff"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Landing h1 only." },
+      "headline": { "displayName": "Headline", "purpose": "Landing section headings." },
+      "title": { "displayName": "Title", "purpose": "Sub-heads, step titles, dialog titles." },
+      "body": { "displayName": "Body", "purpose": "Landing prose with tabular numerals; editor text runs 13-14px." },
+      "label": { "displayName": "Label", "purpose": "Panel headings, field labels, hints, units and dimension text." }
+    },
+    "shadows": [
+      { "name": "pop", "value": "0 6px 16px -4px rgba(10,35,64,0.28), 0 1px 3px rgba(10,35,64,0.18)", "purpose": "Menus, warn list, badge, toast, modal." },
+      { "name": "landing-cta", "value": "0 8px 18px -8px rgba(10,35,64,0.55)", "purpose": "시작하기 button only." },
+      { "name": "sheet-up", "value": "0 -6px 14px -8px rgba(10,35,64,0.35)", "purpose": "Mobile bottom-sheet panel." }
+    ],
+    "motion": [
+      { "name": "control-fade", "value": "0.12s ease-out", "purpose": "Button background, border and color changes." },
+      { "name": "chain-draw", "value": "0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.25s", "purpose": "Landing hero dimension chains drawing in; disabled under reduced motion." },
+      { "name": "chevron", "value": "0.15s ease-out", "purpose": "Details summary chevron rotation." }
+    ],
+    "breakpoints": [
+      { "name": "mobile-max", "value": "639px" },
+      { "name": "tablet", "value": "640px" },
+      { "name": "trace-stack", "value": "767px" },
+      { "name": "landing-wide", "value": "960px" },
+      { "name": "desktop", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button-default",
+      "description": "Outlined control; amber when pressed.",
+      "html": "<button class=\"ds-btn\">되돌리기</button> <button class=\"ds-btn\" aria-pressed=\"true\">스냅</button>",
+      "css": ".ds-btn{min-height:44px;min-width:44px;padding:2px 12px;background:var(--surface,#fff);color:var(--ink,#0f2a4a);border:1px solid var(--line-strong,#7e97b3);border-radius:4px;font:600 14px var(--font-ui,sans-serif);cursor:pointer;transition:background-color .12s ease-out,border-color .12s ease-out}.ds-btn:hover{background:var(--canvas,#eaf0f6);border-color:var(--ink-soft,#33506f)}.ds-btn:focus-visible{outline:3px solid var(--accent,#f2a900);outline-offset:2px}.ds-btn[aria-pressed='true']{background:var(--accent,#f2a900);border-color:#c98f00;color:var(--ink,#0f2a4a)}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Navy fill for committing actions.",
+      "html": "<button class=\"ds-btn-primary\">방 만들기</button>",
+      "css": ".ds-btn-primary{min-height:44px;padding:2px 12px;background:var(--navy,#0f3057);color:#fff;border:1px solid var(--navy,#0f3057);border-radius:4px;font:600 14px var(--font-ui,sans-serif);cursor:pointer;transition:background-color .12s ease-out}.ds-btn-primary:hover{background:var(--navy-deep,#0a2340);border-color:var(--navy-deep,#0a2340)}.ds-btn-primary:focus-visible{outline:3px solid var(--accent,#f2a900);outline-offset:2px}"
+    },
+    {
+      "name": "Landing CTA",
+      "kind": "button",
+      "refersTo": "button-landing",
+      "description": "The 시작하기 call to action on the landing page.",
+      "html": "<a class=\"ds-cta\" href=\"#\">시작하기</a>",
+      "css": ".ds-cta{display:inline-flex;align-items:center;min-height:52px;padding:0 36px;font:800 17px var(--font-ui,sans-serif);color:#fff;background:var(--navy,#0f3057);border:2px solid var(--navy,#0f3057);border-radius:4px;text-decoration:none;box-shadow:0 8px 18px -8px rgba(10,35,64,.55);transition:background-color .12s ease-out}.ds-cta:hover{background:var(--navy-deep,#0a2340)}.ds-cta:focus-visible{outline:3px solid var(--accent,#f2a900);outline-offset:2px}"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Labeled numeric field with trailing unit.",
+      "html": "<div class=\"ds-field\"><label>가로</label><input value=\"120\"><span>cm</span></div>",
+      "css": ".ds-field{display:grid;grid-template-columns:84px 1fr auto;align-items:center;gap:6px}.ds-field label{color:var(--ink-soft,#33506f);font:600 13px var(--font-ui,sans-serif)}.ds-field input{min-height:44px;min-width:0;padding:0 10px;background:#fff;border:1px solid var(--line-strong,#7e97b3);border-radius:4px;font:inherit;color:var(--ink,#0f2a4a)}.ds-field input:focus{border-color:var(--navy,#0f3057);outline:3px solid var(--accent,#f2a900)}.ds-field span{color:var(--muted,#4a6480);font:600 12px var(--font-ui,sans-serif)}"
+    },
+    {
+      "name": "Top Bar",
+      "kind": "nav",
+      "refersTo": "topbar",
+      "description": "Navy shell with segmented view control; pressed view is amber.",
+      "html": "<div class=\"ds-top\"><strong>RoomFit 3D</strong><div class=\"ds-seg\"><button aria-pressed=\"true\">2D</button><button>쿼터</button><button>1인칭</button></div></div>",
+      "css": ".ds-top{display:flex;align-items:center;gap:12px;padding:4px 12px;background:var(--navy,#0f3057);color:#fff;border-bottom:3px solid var(--navy-deep,#0a2340);font-family:var(--font-ui,sans-serif)}.ds-seg{display:inline-flex;gap:2px}.ds-seg button{min-height:44px;min-width:44px;padding:2px 12px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:0;font:600 14px var(--font-ui,sans-serif);cursor:pointer}.ds-seg button:first-child{border-radius:4px 0 0 4px}.ds-seg button:last-child{border-radius:0 4px 4px 0}.ds-seg button:hover{background:rgba(255,255,255,.18);border-color:#fff}.ds-seg button[aria-pressed='true']{background:var(--accent,#f2a900);border-color:var(--accent,#f2a900);color:var(--ink,#0f2a4a)}.ds-seg button:focus-visible{outline:3px solid var(--accent,#f2a900);outline-offset:2px}"
+    },
+    {
+      "name": "Panel Heading with Dimension Chain",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Signature: heading followed by a tick-ended dimension rule.",
+      "html": "<h2 class=\"ds-h2\">가구</h2>",
+      "css": ".ds-h2{display:flex;align-items:center;gap:10px;margin:18px 0 8px;font:700 13px var(--font-ui,sans-serif);letter-spacing:.01em;color:var(--ink,#0f2a4a)}.ds-h2::after{content:'';flex:1;height:9px;background:linear-gradient(#7e97b3,#7e97b3) center/100% 1px no-repeat,linear-gradient(#7e97b3,#7e97b3) left/1px 100% no-repeat,linear-gradient(#7e97b3,#7e97b3) right/1px 100% no-repeat}"
+    },
+    {
+      "name": "Catalog Item",
+      "kind": "chip",
+      "refersTo": "button-default",
+      "description": "Kind-colored swatch, name and tabular dimensions.",
+      "html": "<button class=\"ds-cat\"><span class=\"ds-sw\"></span><span class=\"ds-ct\">싱글 침대<small>100×200cm</small></span></button>",
+      "css": ".ds-cat{display:flex;align-items:center;gap:8px;width:220px;min-height:44px;padding:4px 10px;background:#fff;border:1px solid var(--line-strong,#7e97b3);border-radius:4px;text-align:left;font:600 14px var(--font-ui,sans-serif);color:var(--ink,#0f2a4a);cursor:pointer}.ds-cat:hover{background:var(--canvas,#eaf0f6)}.ds-cat:focus-visible{outline:3px solid var(--accent,#f2a900);outline-offset:2px}.ds-sw{width:12px;height:12px;flex:none;background:#7a8fb0;border:1.5px solid var(--ink,#0f2a4a);border-radius:2px}.ds-ct{display:flex;flex-direction:column;line-height:1.25}.ds-ct small{color:var(--muted,#4a6480);font-size:11px;font-weight:500;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Collision Badge",
+      "kind": "card",
+      "refersTo": "badge-warn",
+      "description": "Warning badge; red tint with icon and text.",
+      "html": "<div class=\"ds-badge\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3 2 21h20z\"/><path d=\"M12 10v5M12 18v.5\"/></svg>간섭 2건</div>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;background:var(--danger-bg,#fdecec);color:var(--danger-ink,#a71d1d);border:1px solid var(--danger,#c62828);border-radius:4px;font:700 14px var(--font-ui,sans-serif);box-shadow:0 6px 16px -4px rgba(10,35,64,.28),0 1px 3px rgba(10,35,64,.18)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Sales Floor Plan",
+    "overview": "The product is a Korean apartment sales brochure plan that you can edit. White drawing paper, deep navy ink, a pale plan-blue work ground. Every measurement is drawn the way a drafter would draw it: a tick-ended dimension chain with cm numerals. Controls are plain web controls with square-ish corners and navy outlines; the interface reads as drafting furniture around the plan, never as a styled SaaS shell.\n\nDensity is practical and calm. Numerals are tabular and are the most legible thing on screen. Depth is carried by tone and hairline, with one soft pop shadow reserved for floating things. The same grammar runs across landing, editor, trace screen and dialogs.",
+    "keyCharacteristics": [
+      "Navy ink for linework, type and committed action; plan-blue (#eaf0f6) as the work ground.",
+      "Role-locked color: navy fill = action/commit, amber = selected/on, red = collision, plan-blue = work ground.",
+      "Signature: the tick-ended dimension chain.",
+      "Pretendard Variable, tabular numerals, 4px corners, 44px touch targets.",
+      "Furniture blocks keep per-kind PRD colors, kept muted so the room reads first."
+    ],
+    "rules": [
+      { "name": "The Role Lock Rule", "body": "Navy fill means do/commit, amber means selected or on, red means collision, plan-blue means ground. A color never takes a second job.", "section": "colors" },
+      { "name": "The Amber Is Selection Rule", "body": "Amber never decorates; if nothing is selected or on, amber is absent.", "section": "colors" },
+      { "name": "The Numerals First Rule", "body": "Tabular figures everywhere; a measurement is never set smaller than the text around it.", "section": "typography" },
+      { "name": "The Hairline First Rule", "body": "Separate with a hairline or a tone step before reaching for a shadow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do express every measurement as a tick-ended chain with cm numerals.",
+      "Do use navy fill only for primary or committing actions, amber only for selected/on.",
+      "Do keep 44px targets, 3px amber focus ring, and pair every red state with an icon and text.",
+      "Do keep numerals tabular and surfaces flat with hairlines before shadows.",
+      "Do keep furniture colors muted so the plan reads first."
+    ],
+    "donts": [
+      "Don't use red for anything but collision.",
+      "Don't use blueprint-cyan or a generic blue SaaS editor look.",
+      "Don't put amber text on white, or any text on amber except ink.",
+      "Don't replace specs or sections with floating cards; separate with a dimension rule.",
+      "Don't block placement on a collision; warn only."
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-23T09:58:03.121Z",
+        "reason": "model verified: CSS is imported by src/landing/page.ts so static scan sees no styles; rendered h1 is clamp(2.1rem..3.6rem) vs 16px body (captures in .impeccable/review)"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "privacy.html"
+        ],
+        "createdAt": "2026-11-23T09:58:03.234Z",
+        "reason": "model verified: CSS is imported by src/landing/page.ts so static scan sees no styles; rendered h1 is clamp(2.1rem..3.6rem) vs 16px body (captures in .impeccable/review)"
+      }
+    ]
+  }
+}
