@@ -123,7 +123,7 @@ button.primary:hover:not(:disabled), button[type='submit']:hover:not(:disabled) 
 .menu button { justify-content: flex-start; text-align: left; border: 0; background: none; color: var(--ink); }
 .menu button:hover:not(:disabled) { background: var(--canvas); }
 .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: var(--scrim); }
-.modal { background: var(--surface); padding: 16px 20px 20px; border-radius: var(--radius); border: 1px solid var(--line-strong); box-shadow: var(--shadow-pop); width: min(440px, 92vw); max-height: 90vh; overflow-y: auto; }
+.modal { background: var(--surface); color: var(--ink); padding: 16px 20px 20px; border-radius: var(--radius); border: 1px solid var(--line-strong); box-shadow: var(--shadow-pop); width: min(440px, 92vw); max-height: 90vh; overflow-y: auto; }
 .modal h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 17px; }
 .modal h2::after { content: ''; flex: 1; height: 9px; background: linear-gradient(var(--line-strong), var(--line-strong)) center / 100% 1px no-repeat, linear-gradient(var(--line-strong), var(--line-strong)) left / 1px 100% no-repeat, linear-gradient(var(--line-strong), var(--line-strong)) right / 1px 100% no-repeat; }
 .row.end { justify-content: flex-end; }

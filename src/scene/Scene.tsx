@@ -128,13 +128,20 @@ function WallDims({ room, active, labelRoot }: { room: Room; active: boolean; la
 }
 
 /** 활성 방의 가로·세로 치수선(분양 평면도의 치수 체인). 끝 눈금 + cm 칩. 1인칭에서는 그리지 않고, 칩은 2D 벽 치수 라벨이 켜지면 겹치므로 숨긴다. */
-function RoomChains({ room, labelRoot, chips }: { room: Room; labelRoot: RefObject<HTMLDivElement | null>; chips: boolean }) {
+function RoomChains({ room, rooms, labelRoot, chips }: { room: Room; rooms: Room[]; labelRoot: RefObject<HTMLDivElement | null>; chips: boolean }) {
   const b = useMemo(() => roomBounds(room.points), [room.points])
   const y = 0.6
   const gap = 60 // 벽 바깥으로 띄우는 거리(cm)
   const tick = 14
-  const zc = b.maxZ + gap
-  const xc = b.minX - gap
+  // 이웃 방 위로 치수선이 지나가지 않도록, 이웃이 없는 쪽(아래→위, 왼쪽→오른쪽)에 둔다
+  const others = useMemo(() => rooms.filter((r) => r.id !== room.id).map((r) => roomBounds(r.points)), [rooms, room.id])
+  const clear = (x0: number, x1: number, z0: number, z1: number) => others.every((o) => o.maxX < x0 || o.minX > x1 || o.maxZ < z0 || o.minZ > z1)
+  const zBelow = b.maxZ + gap
+  const zAbove = b.minZ - gap
+  const xLeft = b.minX - gap
+  const xRight = b.maxX + gap
+  const zc = !clear(b.minX, b.maxX, zBelow - tick, zBelow + tick) && clear(b.minX, b.maxX, zAbove - tick, zAbove + tick) ? zAbove : zBelow
+  const xc = !clear(xLeft - tick, xLeft + tick, b.minZ, b.maxZ) && clear(xRight - tick, xRight + tick, b.minZ, b.maxZ) ? xRight : xLeft
   const pts: [number, number, number][] = [
     [b.minX, y, zc], [b.maxX, y, zc], [b.minX, y, zc - tick], [b.minX, y, zc + tick], [b.maxX, y, zc - tick], [b.maxX, y, zc + tick],
     [xc, y, b.minZ], [xc, y, b.maxZ], [xc - tick, y, b.minZ], [xc + tick, y, b.minZ], [xc - tick, y, b.maxZ], [xc + tick, y, b.maxZ],
@@ -257,7 +264,7 @@ export default function Scene() {
       {rooms.map((r) => (
         <Walls key={`walls-${r.id}`} room={r} rooms={rooms} />
       ))}
-      {cameraMode !== 'FIRST_PERSON' && <RoomChains key={`chain-${active.id}`} room={active} labelRoot={labelRoot} chips={!showDims} />}
+      {cameraMode !== 'FIRST_PERSON' && <RoomChains key={`chain-${active.id}`} room={active} rooms={rooms} labelRoot={labelRoot} chips={!showDims} />}
       {showDims && rooms.map((r) => (
         <WallDims key={`dims-${r.id}`} room={r} active={r.id === active.id} labelRoot={labelRoot} />
       ))}
