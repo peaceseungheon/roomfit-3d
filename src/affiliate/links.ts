@@ -56,3 +56,9 @@ export function affiliateUrl(
   const url = width <= a ? small : width <= b ? mid : large
   return isHttpUrl(url) ? url : null
 }
+
+/** 속성 패널 표시용 폭 구간 문구. affiliateUrl과 같은 경계를 쓴다. */
+export function affiliateBandLabel(modelType: string, width: number): string {
+  const { a, b } = AFFILIATE_LINKS[modelType]
+  return width <= a ? `폭 ${a}cm 이하 상품` : width <= b ? `폭 ${a}~${b}cm대 상품` : `폭 ${b}cm 초과 상품`
+}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { affiliateUrl } from '../affiliate/links'
+import { affiliateBandLabel, affiliateUrl } from '../affiliate/links'
 import { NAME_MAX } from '../io/validate'
-import { DEFAULT_ELEVATION, DIMENSION_BOX, isDimensionBox, itemLabel } from '../store/catalog'
+import { DEFAULT_ELEVATION, DIMENSION_BOX, FURNITURE_CATALOG, isDimensionBox, itemLabel } from '../store/catalog'
 import { nextRotation } from '../scene/interaction'
 import { fixtureKind, nearestWallIn } from '../scene/geometry'
 import { useWarnings } from '../scene/useWarnings'
@@ -127,25 +127,23 @@ function FurnitureFields({ item }: { item: Item }) {
   const hi = POSITION_LIMIT
   return (
     <>
-      <Field label="가로 W" value={ui.w} min={SIZE_LIMITS.w[0]} max={SIZE_LIMITS.w[1]} onCommit={setSize('w')} />
-      <Field label="깊이 D" value={ui.d} min={SIZE_LIMITS.d[0]} max={SIZE_LIMITS.d[1]} onCommit={setSize('d')} />
-      <Field label="높이 H" value={ui.h} min={SIZE_LIMITS.h[0]} max={SIZE_LIMITS.h[1]} onCommit={setSize('h')} />
-      <Field label="위치 X" value={px} min={lo} max={hi} onCommit={(v) => patchItem(item.id, { position: [v, 0, pz] })} />
-      <Field label="위치 Z" value={pz} min={lo} max={hi} onCommit={(v) => patchItem(item.id, { position: [px, 0, v] })} />
-      <Field
-        label="회전"
-        unit="°"
-        value={Math.round(item.rotation[1])}
-        min={ROTATION_LIMITS[0]}
-        max={ROTATION_LIMITS[1]}
-        onCommit={(v) => patchItem(item.id, { rotation: [item.rotation[0], v, item.rotation[2]] })}
-      />
-      <button
-        aria-label="90도 회전"
-        onClick={() => patchItem(item.id, { rotation: [item.rotation[0], nextRotation(item.rotation[1]), item.rotation[2]] })}
-      >
-        +90°
-      </button>
+      <div className="field-grid" role="group" aria-label="크기(cm)">
+        <Field label="가로 W" value={ui.w} min={SIZE_LIMITS.w[0]} max={SIZE_LIMITS.w[1]} onCommit={setSize('w')} />
+        <Field label="깊이 D" value={ui.d} min={SIZE_LIMITS.d[0]} max={SIZE_LIMITS.d[1]} onCommit={setSize('d')} />
+        <Field label="높이 H" value={ui.h} min={SIZE_LIMITS.h[0]} max={SIZE_LIMITS.h[1]} onCommit={setSize('h')} />
+      </div>
+      <div className="field-grid" role="group" aria-label="위치(cm)·회전(°)">
+        <Field label="위치 X" value={px} min={lo} max={hi} onCommit={(v) => patchItem(item.id, { position: [v, 0, pz] })} />
+        <Field label="위치 Z" value={pz} min={lo} max={hi} onCommit={(v) => patchItem(item.id, { position: [px, 0, v] })} />
+        <Field
+          label="회전°"
+          unit="°"
+          value={Math.round(item.rotation[1])}
+          min={ROTATION_LIMITS[0]}
+          max={ROTATION_LIMITS[1]}
+          onCommit={(v) => patchItem(item.id, { rotation: [item.rotation[0], v, item.rotation[2]] })}
+        />
+      </div>
     </>
   )
 }
@@ -192,15 +190,36 @@ function FixtureFields({ item }: { item: Item }) {
 
 /** FR-17: 가구 14종(치수 박스는 선택한 종류) + 설정된 URL이 있을 때만 링크와 고지를 함께 표시. */
 function AffiliateLink({ item }: { item: Item }) {
-  const url = item.type === 'FURNITURE' ? affiliateUrl(isDimensionBox(item) ? item.category : item.modelType, item.size[0]) : null
-  if (!url) return null
+  const modelType = isDimensionBox(item) ? item.category : item.modelType
+  const url = item.type === 'FURNITURE' ? affiliateUrl(modelType, item.size[0]) : null
+  const kind = FURNITURE_CATALOG.find((c) => c.modelType === modelType)
+  if (!url || !kind) return null
+  const band = affiliateBandLabel(kind.modelType, item.size[0])
   return (
     <div className="affiliate">
-      <a href={url} target="_blank" rel="sponsored noopener noreferrer">
-        이 종류 상품 보기 ↗
+      <a className="affiliate-card" href={url} target="_blank" rel="sponsored noopener noreferrer">
+        <BlockThumb color={kind.color} />
+        <span className="affiliate-text">
+          <strong>쿠팡에서 {kind.name} 보기</strong>
+          <small>{band}</small>
+        </span>
+        <span className="affiliate-go" aria-hidden="true">↗</span>
+        <span className="sr-only">(새 탭)</span>
       </a>
       <p className="hint">제휴 링크입니다. 구매 시 수수료를 받을 수 있습니다</p>
     </div>
+  )
+}
+
+/** 상품 사진은 서버·외부 요청 없이 구할 수 없어, 종류 색 직육면체로 "어떤 상품군인지"를 보인다. */
+function BlockThumb({ color }: { color: string }) {
+  return (
+    <svg className="affiliate-thumb" viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M24 8 40 16 24 24 8 16Z" fill={color} />
+      <path d="M8 16 24 24V41L8 33Z" fill={color} opacity="0.72" />
+      <path d="M40 16 24 24V41L40 33Z" fill={color} opacity="0.5" />
+      <path d="M24 8 40 16V33L24 41 8 33V16Z M8 16 24 24 40 16 M24 24V41" fill="none" stroke="#0f2a4a" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
   )
 }
 
@@ -240,15 +259,27 @@ function ItemPanel({ item, isFurniture }: { item: Item; isFurniture: boolean }) 
     <section aria-label="선택한 항목 치수" key={item.id}>
       <h2>속성</h2>
       <NameField item={item} />
-      {isDimensionBox(item) && <ColorField item={item} />}
-      {isDimensionBox(item) && <CategorySelect id="item-category" value={item.category} onChange={(v) => patchItem(item.id, { category: v })} />}
+      {isDimensionBox(item) && (
+        <div className="field-grid two">
+          <CategorySelect id="item-category" value={item.category} onChange={(v) => patchItem(item.id, { category: v })} />
+          <ColorField item={item} />
+        </div>
+      )}
       {isFurniture ? <FurnitureFields item={item} /> : <FixtureFields item={item} />}
-      <div className="row">
+      <div className="row actions">
+        {isFurniture && (
+          <button
+            aria-label="90도 회전"
+            onClick={() => patchItem(item.id, { rotation: [item.rotation[0], nextRotation(item.rotation[1]), item.rotation[2]] })}
+          >
+            +90°
+          </button>
+        )}
         {isFurniture && <button onClick={duplicateSelected}>복제</button>}
-        <button onClick={deleteSelected}>삭제</button>
+        <button className="quiet-danger" onClick={deleteSelected}>삭제</button>
       </div>
-      <ItemWarnings id={item.id} />
       <AffiliateLink item={item} />
+      <ItemWarnings id={item.id} />
     </section>
   )
 }

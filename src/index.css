@@ -180,9 +180,27 @@ button.primary:hover:not(:disabled), button[type='submit']:hover:not(:disabled) 
 .trace-side { width: 300px; padding: 12px 16px; overflow: auto; border-left: 1px solid var(--line); }
 @media (max-width: 767px) { .trace-body { flex-direction: column; } .trace-side { width: auto; max-height: 45vh; border-left: 0; border-top: 1px solid var(--line); } }
 .suggest { margin: 8px 0; }
-.affiliate { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
-.affiliate a { color: var(--navy); font-weight: 700; text-underline-offset: 3px; }
-.affiliate .hint { margin: 4px 0 0; }
+.affiliate { margin: 14px 0 0; }
+.affiliate-card { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; background: var(--navy); color: #fff; border: 1px solid var(--navy-deep); border-bottom: 3px solid var(--accent); border-radius: var(--radius); text-decoration: none; min-height: 64px; transition: background-color 0.12s ease-out; }
+.affiliate-card:hover { background: var(--navy-deep); }
+.affiliate-thumb { width: 48px; height: 48px; flex: none; padding: 4px; box-sizing: border-box; background: var(--surface); border-radius: var(--radius); }
+.affiliate-text { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.3; }
+.affiliate-text strong { font-size: 15px; font-weight: 700; }
+.affiliate-text small { font-size: 12px; opacity: 0.85; }
+.affiliate-go { font-size: 20px; font-weight: 700; color: var(--accent); }
+.affiliate .hint { margin: 6px 0 0; font-size: 12px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* 속성 패널 압축: 라벨을 입력 위에 두고 3열로 묶는다 */
+.field-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+.field-grid.two { grid-template-columns: 1fr 1fr; }
+.field-grid .field { grid-template-columns: minmax(0, 1fr); gap: 2px; margin: 0; }
+.field-grid .unit { display: none; }
+.field-grid input, .field-grid select { width: 100%; box-sizing: border-box; }
+.field-grid input[inputmode] { text-align: right; font-variant-numeric: tabular-nums; }
+.row.actions { flex-wrap: nowrap; }
+.row.actions button { flex: 1; padding: 2px 6px; }
+button.quiet-danger { color: var(--danger-ink); }
+button.quiet-danger:hover:not(:disabled) { background: var(--danger-bg); border-color: var(--danger); }
 .consent-toggle { display: block; padding: 6px; }
 
 .webgl-notice, .webgl-lost { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center; margin: 0; padding: 16px; text-align: center; background: var(--canvas); color: var(--danger-ink); font-weight: 600; z-index: 10; }
