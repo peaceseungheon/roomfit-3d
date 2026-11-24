@@ -17,6 +17,7 @@ export interface Item {
   rotation: Vec3 // 도
   size: Vec3
   color?: string
+  category?: string // 치수 박스 전용 종류(FURNITURE_CATALOG modelType 중 하나). 없으면 '기타'(링크 없음)
   elevation?: number // cm, 바닥 위 높이. 창·콘센트 전용, 없으면 카탈로그 기본값
   doorSwing?: DoorSwing
 }

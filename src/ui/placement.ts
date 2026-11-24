@@ -53,7 +53,7 @@ export function makeFromCatalog(entry: CatalogEntry, rooms: Room[], active: Room
 
 /** 치수 박스(FR-09). 배치는 카탈로그와 같은 빈자리 탐색을 쓴다. name이 비면 생략. */
 export function makeDimensionBox(
-  spec: { size: Vec3; name?: string; color: string },
+  spec: { size: Vec3; name?: string; color: string; category?: string },
   rooms: Room[],
   active: Room,
   items: Item[],
@@ -68,6 +68,7 @@ export function makeDimensionBox(
     rotation: [0, 0, 0],
     size: spec.size,
     color: spec.color,
+    ...(spec.category && { category: spec.category }),
   }
   return { ...base, position: findFreeSpot(rooms, active, items, base) }
 }

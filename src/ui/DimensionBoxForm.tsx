@@ -3,6 +3,7 @@ import { NAME_MAX } from '../io/validate'
 import { useUiStore } from '../store/useUiStore'
 import { DIMENSION_BOX } from '../store/catalog'
 import { addDimensionBox } from './actions'
+import CategorySelect from './CategorySelect'
 import { parseBoxForm, type BoxForm } from './itemFields'
 
 const EMPTY: BoxForm = { w: '', d: '', h: '' }
@@ -13,6 +14,7 @@ export default function DimensionBoxForm() {
   const [f, setF] = useState<BoxForm>(EMPTY)
   const [name, setName] = useState('')
   const [color, setColor] = useState(DIMENSION_BOX.color)
+  const [category, setCategory] = useState<string | undefined>()
   const [errors, setErrors] = useState<Partial<Record<keyof BoxForm, string>>>({})
 
   const refs = useRef<Partial<Record<keyof BoxForm, HTMLInputElement | null>>>({})
@@ -25,7 +27,7 @@ export default function DimensionBoxForm() {
       if (first) refs.current[first]?.focus()
       return
     }
-    if (!addDimensionBox({ size: r.size, name, color })) {
+    if (!addDimensionBox({ size: r.size, name, color, category })) {
       useUiStore.getState().setNotice('⚠ 치수 박스를 추가하지 못했습니다. 입력은 그대로 유지됩니다.')
       return
     }
@@ -73,6 +75,7 @@ export default function DimensionBoxForm() {
         <input id="box-color" type="color" value={color} onChange={(e) => setColor(e.target.value)} />
         <span className="unit">{color}</span>
       </div>
+      <CategorySelect id="box-category" value={category} onChange={setCategory} />
       <button className="primary" onClick={submit}>치수 박스 추가</button>
     </section>
   )

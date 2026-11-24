@@ -10,6 +10,7 @@ import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { Item } from '../store/types'
 import { deleteSelected, duplicateSelected, patchItem } from './actions'
+import CategorySelect from './CategorySelect'
 import Field from './Field'
 import { WarnIcon } from './icons'
 import {
@@ -189,9 +190,9 @@ function FixtureFields({ item }: { item: Item }) {
   )
 }
 
-/** FR-17: 기본 가구 15종 + 설정된 URL이 있을 때만 링크와 고지를 함께 표시. */
+/** FR-17: 가구 14종(치수 박스는 선택한 종류) + 설정된 URL이 있을 때만 링크와 고지를 함께 표시. */
 function AffiliateLink({ item }: { item: Item }) {
-  const url = item.type === 'FURNITURE' ? affiliateUrl(item.modelType) : null
+  const url = item.type === 'FURNITURE' ? affiliateUrl(isDimensionBox(item) ? item.category : item.modelType, item.size[0]) : null
   if (!url) return null
   return (
     <div className="affiliate">
@@ -240,6 +241,7 @@ function ItemPanel({ item, isFurniture }: { item: Item; isFurniture: boolean }) 
       <h2>속성</h2>
       <NameField item={item} />
       {isDimensionBox(item) && <ColorField item={item} />}
+      {isDimensionBox(item) && <CategorySelect id="item-category" value={item.category} onChange={(v) => patchItem(item.id, { category: v })} />}
       {isFurniture ? <FurnitureFields item={item} /> : <FixtureFields item={item} />}
       <div className="row">
         {isFurniture && <button onClick={duplicateSelected}>복제</button>}

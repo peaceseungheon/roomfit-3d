@@ -58,7 +58,7 @@ describe('fixtures (AC-06-1,3,5)', () => {
     expect(w.elevation).toBeUndefined()
     const d = makeFixture('DOOR_ENTRANCE', rooms, rooms[0], items)!
     expect(d.doorSwing).toMatchObject({ radius: 90 })
-    expect(makeFixture('BED_QUEEN', rooms, rooms[0], items)).toBeNull()
+    expect(makeFixture('BED', rooms, rooms[0], items)).toBeNull()
   })
   it('avoids existing fixtures on the same wall', () => {
     const rooms = useDocStore.getState().rooms

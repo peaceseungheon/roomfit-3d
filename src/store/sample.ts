@@ -24,7 +24,7 @@ export const createSample = (): DocData => ({
   ],
   items: [
     { id: 'door_001', type: 'FIXTURE', ...spec('DOOR_SINGLE'), position: [0, 0, 50], rotation: [0, 0, 0], doorSwing: { direction: 'LEFT_IN', radius: 90, angle: 90 } },
-    { id: 'item_001', type: 'FURNITURE', ...spec('BED_QUEEN'), position: [150, 0, 190], rotation: [0, 90, 0] },
+    { id: 'item_001', type: 'FURNITURE', ...spec('BED'), position: [150, 0, 190], rotation: [0, 90, 0] },
     { id: 'item_002', type: 'FURNITURE', ...spec('DESK'), position: [320, 0, 60], rotation: [0, 0, 0] },
     { id: 'item_003', type: 'FURNITURE', ...spec('WARDROBE'), position: [340, 0, 230], rotation: [0, 0, 0] },
   ],

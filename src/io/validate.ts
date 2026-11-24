@@ -1,5 +1,6 @@
 import { DEFAULT_ROOM_ID, PLAN_EXTENT_MAX, defaultRoomName, type DocumentJson, type Item, type Point2, type Room, type RoomShape, type Vec3 } from '../store/types'
 import { ceilingForItem } from '../store/rooms'
+import { FURNITURE_CATALOG } from '../store/catalog'
 import { roomsOverlap } from './roomOverlap'
 
 // 기존 import 경로 유지용 re-export. 정의는 store/types.ts(순수 상수)에 있다.
@@ -131,6 +132,8 @@ function checkItem(it: unknown, i: number, errs: ValidationError[], ids: Set<str
     errs.push({ path: `${p}.name`, message: `${NAME_MAX}자 이하 문자열이어야 합니다` })
   if (it.color !== undefined && (typeof it.color !== 'string' || !COLOR_RE.test(it.color)))
     errs.push({ path: `${p}.color`, message: '#RGB 또는 #RRGGBB 형식이어야 합니다' })
+  if (it.category !== undefined && (typeof it.category !== 'string' || !FURNITURE_CATALOG.some((c) => c.modelType === it.category)))
+    errs.push({ path: `${p}.category`, message: '가구 14종의 modelType 중 하나여야 합니다' })
   const posOk = vec3(it.position, `${p}.position`, errs)
   if (posOk) {
     const pos = it.position as Vec3

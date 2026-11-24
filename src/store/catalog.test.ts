@@ -4,8 +4,8 @@ import { createSample } from './sample'
 import { ITEM_MAX_H, ITEM_MAX_WD } from '../io/validate'
 
 describe('catalog', () => {
-  it('가구 15종, 고정 요소 4종, modelType 중복 없음', () => {
-    expect(FURNITURE_CATALOG).toHaveLength(15)
+  it('가구 14종, 고정 요소 4종, modelType 중복 없음', () => {
+    expect(FURNITURE_CATALOG).toHaveLength(14)
     expect(FIXTURE_CATALOG).toHaveLength(4)
     expect(new Set(CATALOG.map((c) => c.modelType)).size).toBe(CATALOG.length)
   })

@@ -1,6 +1,6 @@
 import type { Vec3 } from './types'
 
-/** PRD FR-08 가구 15종 + FR-06 고정 요소 4종. 치수는 W×D×H(cm), 저장 size는 [W,H,D]. */
+/** PRD FR-08 가구 14종 + FR-06 고정 요소 4종. 치수는 W×D×H(cm), 저장 size는 [W,H,D]. */
 export interface CatalogEntry {
   modelType: string
   name: string
@@ -11,11 +11,10 @@ export interface CatalogEntry {
 }
 
 export const FURNITURE_CATALOG: readonly CatalogEntry[] = [
-  { modelType: 'BED_SINGLE', name: '싱글 침대', w: 100, d: 200, h: 45, color: '#7a8fb0' },
-  { modelType: 'BED_QUEEN', name: '퀸 침대', w: 150, d: 200, h: 50, color: '#5c7396' },
+  { modelType: 'BED', name: '침대', w: 140, d: 200, h: 50, color: '#5c7396' },
   { modelType: 'DESK', name: '책상', w: 120, d: 60, h: 73, color: '#6f9c94' },
   { modelType: 'CHAIR', name: '의자', w: 45, d: 50, h: 85, color: '#4e8a82' },
-  { modelType: 'SOFA_2', name: '2인 소파', w: 150, d: 85, h: 80, color: '#8b7bb5' },
+  { modelType: 'SOFA', name: '소파', w: 150, d: 85, h: 80, color: '#8b7bb5' },
   { modelType: 'WARDROBE', name: '옷장', w: 100, d: 60, h: 200, color: '#b0906e' },
   { modelType: 'DRAWER', name: '서랍장', w: 80, d: 40, h: 100, color: '#c9ae8e' },
   { modelType: 'DINING_TABLE', name: '식탁', w: 120, d: 70, h: 74, color: '#e2a94f' },
@@ -41,7 +40,7 @@ export const DEFAULT_ELEVATION: Record<string, number> = { WINDOW: 90, OUTLET: 3
 
 export const CATALOG: readonly CatalogEntry[] = [...FURNITURE_CATALOG, ...FIXTURE_CATALOG]
 
-/** PRD FR-09 치수 박스. 카탈로그 15종에는 넣지 않는다(목록·제휴 링크 제외). 저장 modelType은 'DIMENSION_BOX'. */
+/** PRD FR-09 치수 박스. 카탈로그 14종에는 넣지 않는다(목록·제휴 링크 제외). 저장 modelType은 'DIMENSION_BOX'. */
 export const DIMENSION_BOX_TYPE = 'DIMENSION_BOX'
 export const DIMENSION_BOX: CatalogEntry = {
   modelType: DIMENSION_BOX_TYPE,

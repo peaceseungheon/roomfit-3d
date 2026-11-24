@@ -43,9 +43,21 @@ describe('dimension box (FR-09)', () => {
     const { rooms, items } = createSample()
     expect(makeDimensionBox({ size: [10, 10, 10], name: ' 새 침대 ', color: '#fff' }, rooms, rooms[0], items).name).toBe('새 침대')
   })
+  it('category is stored only when chosen; kept by duplicate and update; catalog items ignore it for links', () => {
+    const { rooms } = createSample()
+    const spec = { size: [100, 50, 100] as [number, number, number], color: '#90caf9' }
+    expect('category' in makeDimensionBox(spec, rooms, rooms[0], [])).toBe(false)
+    const box = makeDimensionBox({ ...spec, category: 'SOFA' }, rooms, rooms[0], [])
+    expect(box.category).toBe('SOFA')
+    expect(makeDuplicate(box, [box]).category).toBe('SOFA')
+    const url = { a: 120, b: 170, small: '', mid: 'https://x.test/sofa', large: '' }
+    const links = { SOFA: url }
+    expect(affiliateUrl(box.category, 150, links)).toBe(url.mid)
+    expect(affiliateUrl(undefined, 150, links)).toBeNull()
+  })
   it('label falls back to 치수 박스; no affiliate link; not in catalog', () => {
     expect(itemLabel({ modelType: 'DIMENSION_BOX' })).toBe('치수 박스')
-    expect(affiliateUrl('DIMENSION_BOX', { DIMENSION_BOX: 'https://x.test' })).toBeNull()
+    expect(affiliateUrl('DIMENSION_BOX', 100, { DIMENSION_BOX: { a: 1, b: 2, small: 'https://x.test', mid: 'https://x.test', large: 'https://x.test' } })).toBeNull()
     expect(findCatalog('DIMENSION_BOX')).toBeUndefined()
   })
   it('passes validateDoc roundtrip', () => {

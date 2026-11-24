@@ -117,6 +117,24 @@ describe('치수 박스 저장→불러오기 왕복', () => {
   })
 })
 
+describe('치수 박스 category', () => {
+  const withCat = (category: unknown) => {
+    const d = valid()
+    d.items[0] = { ...d.items[0], category }
+    return d
+  }
+  it('카탈로그 14종 modelType이면 통과하고 저장→불러오기에서 보존', () => {
+    expect(validateDocument(withCat('SOFA')).ok).toBe(true)
+    const r = parseDocument(serializeDocument({ ...createSample(), items: createSample().items.map((i, n) => (n === 1 ? { ...i, category: 'BED' } : i)) }))
+    expect(r.ok && r.value.items[1].category).toBe('BED')
+  })
+  it('모르는 값·문자열이 아닌 값은 경로 오류', () => {
+    expect(paths(withCat('BED_QUEEN'))).toContain('items[0].category')
+    expect(paths(withCat('DIMENSION_BOX'))).toContain('items[0].category')
+    expect(paths(withCat(3))).toContain('items[0].category')
+  })
+})
+
 describe('다중 방 문서(1.0/1.1)', () => {
   type P = [number, number]
   const sq = (x: number, z: number, w = 300, d = 300): P[] => [[x, z], [x + w, z], [x + w, z + d], [x, z + d]]
