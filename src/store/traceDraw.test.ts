@@ -218,3 +218,18 @@ describe('QA 회귀(R2, R3, R5, R6)', () => {
     }
   })
 })
+
+describe('드래그 직사각형', () => {
+  it('대각 두 점(스냅 적용)으로 모서리 4개를 만들고 닫을 수 있다', () => {
+    t().start()
+    expect(t().setTraceRect([103, 98], [403, 298])).toBe(true)
+    expect(cornersCm(t())).toEqual([[100, 100], [400, 100], [400, 300], [100, 300]])
+    expect(t().closeTrace()).toBe(true)
+  })
+  it('폭이나 깊이가 0이면 점을 비운다', () => {
+    t().start()
+    t().setTraceRect([100, 100], [300, 300])
+    expect(t().setTraceRect([100, 100], [102, 300])).toBe(false) // 스냅 후 폭 0
+    expect(t().corners).toEqual([])
+  })
+})

@@ -91,6 +91,8 @@ interface TraceState {
   /** 모서리 추가. 축척 전/닫힌 뒤면 false(AC-04-5) */
   addTracePoint: (x: number, z: number, free?: boolean) => boolean
   moveTracePoint: (i: number, x: number, z: number, free?: boolean) => void
+  /** 대각 두 점으로 직사각형 모서리 4개를 만든다(드래그 그리기). 폭·깊이가 0이면 점을 비우고 false */
+  setTraceRect: (a: Point2, b: Point2, free?: boolean) => boolean
   /** 마지막 점 제거 */
   undoTracePoint: () => void
   /** 닫힌 다각형을 점 삭제 없이 다시 연다 */
@@ -343,6 +345,16 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
       error: null,
       selected: null,
     })
+  },
+  setTraceRect: (a, b, free = false) => {
+    const s = get()
+    if (s.scale === null || s.closed || ![...a, ...b].every(Number.isFinite)) return false
+    const [x0, z0] = placePoint(s, a[0], a[1], free, null).point
+    const [x1, z1] = placePoint(s, b[0], b[1], free, null).point
+    const ok = Math.abs(x1 - x0) > EPS && Math.abs(z1 - z0) > EPS
+    const rect: Point2[] = ok ? [[x0, z0], [x1, z0], [x1, z1], [x0, z1]] : []
+    set({ corners: rect.map((p) => cmToPx(p, s.scale!)), error: null, lengthError: null })
+    return ok
   },
   undoTracePoint: () => {
     const s = get()

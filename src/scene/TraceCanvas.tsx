@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Grid, Html } from '@react-three/drei'
-import { SRGBColorSpace, TextureLoader, type Texture } from 'three'
+import { DoubleSide, Shape, SRGBColorSpace, TextureLoader, type Texture } from 'three'
 import { baselineCm, cornersCm, displayScale, previewPoint, selectIsBlank, traceStep, useTraceStore } from '../store/useTraceStore'
 import { blankArea, ghostRooms } from '../store/traceSession'
 import { useDocStore } from '../store/useDocStore'
@@ -19,7 +19,7 @@ import { applyTraceClick, cameraKey, gridPlacement, traceBounds } from './traceV
 const LINE_Y = 1
 const DOT_Y = 2
 const INPUT_Y = 10
-const C = { candidate: '#fb8c00', corner: '#0f3057', first: '#f2a900', line: '#0f3057', bad: '#e53935', baseline: '#2e7d32', preview: '#64b5f6', selected: '#f2a900', ghost: '#9fb3c8', snap: '#ec407a' }
+const C = { candidate: '#fb8c00', corner: '#0f3057', first: '#f2a900', line: '#0f3057', bad: '#e53935', baseline: '#2e7d32', preview: '#64b5f6', selected: '#f2a900', ghost: '#5b7a99', snap: '#ec407a' }
 const GUIDE_DASH = 15 // 이웃 변 안내선 점선 길이(cm)
 
 /** 빈 캔버스 그림 영역(AC-04-7): 흰 바탕 + 격자 + 테두리. 격자 간격은 줌에 따라 바꾼다(gridSteps). area는 blankArea(고스트). */
@@ -62,14 +62,25 @@ function BlankArea({ area }: { area: Bounds }) {
   )
 }
 
-/** 확정한 방(기존 방)의 옅은 윤곽. 겹쳐서 닫기가 거부된 방(error.overlapWith)은 붉게 굵게. 채움·라벨 없음. */
+/** 확정한 방(기존 방)의 윤곽과 옅은 채움(이미지·격자 위에서도 보이게). 겹쳐서 닫기가 거부된 방(error.overlapWith)은 붉게 굵게. 라벨 없음. */
 function Ghosts({ ghosts }: { ghosts: Point2[][] }) {
   const overlap = useTraceStore((s) => s.error?.overlapWith)
   return (
     <>
       {ghosts.map((g, i) => {
         const bad = overlap?.includes(i) ?? false
-        return <Polyline key={i} points={g} y={LINE_Y - 0.5} color={bad ? C.bad : C.ghost} width={bad ? 3 : 1} closed />
+        const color = bad ? C.bad : C.ghost
+        // 눕힌 평면(rotation-x -90°)에서 도형 y는 -z로 간다
+        const shape = new Shape(g.map(([x, z]) => ({ x, y: -z }) as never))
+        return (
+          <group key={i}>
+            <mesh rotation-x={-Math.PI / 2} position={[0, LINE_Y - 0.6, 0]} raycast={() => null}>
+              <shapeGeometry args={[shape]} />
+              <meshBasicMaterial color={color} transparent opacity={0.18} depthWrite={false} side={DoubleSide} toneMapped={false} />
+            </mesh>
+            <Polyline points={g} y={LINE_Y - 0.5} color={color} width={bad ? 3 : 2} closed />
+          </group>
+        )
       })}
     </>
   )
@@ -107,7 +118,8 @@ function ImagePlane({ url, width, depth }: { url: string; width: number; depth: 
   )
 }
 
-type Grab = { kind: 'baseline' | 'corner'; i: number } | null
+// rect: 점이 없을 때 빈 곳에서 시작한 대각 드래그(직사각형 그리기). start는 누른 지점(cm)
+type Grab = { kind: 'baseline' | 'corner'; i: number } | { kind: 'rect'; start: Point2 } | null
 
 function TraceInput() {
   const grab = useRef<Grab>(null)
@@ -116,7 +128,8 @@ function TraceInput() {
       const s = useTraceStore.getState()
       const step = traceStep(s)
       grab.current = null
-      if (step === 'baseline') {
+      if (step === 'corners' && s.corners.length === 0) grab.current = { kind: 'rect', start: p } // 누르기만 하면 click이 첫 점을 찍는다
+      else if (step === 'baseline') {
         const i = hitPoint(baselineCm(s), p, r)
         if (i >= 0) grab.current = { kind: 'baseline', i }
       } else if (step === 'corners' || step === 'closed') {
@@ -130,8 +143,16 @@ function TraceInput() {
       const s = useTraceStore.getState()
       if (g?.kind === 'baseline') s.setBaselinePoint(g.i as 0 | 1, x, z)
       else if (g?.kind === 'corner') s.moveTracePoint(g.i, x, z, shift)
+      else if (g?.kind === 'rect') {
+        useTraceStore.setState({ cursor: null }) // 드래그 중에는 다음 점 미리보기를 숨긴다
+        s.setTraceRect(g.start, [x, z], shift)
+      }
     },
-    end: () => (grab.current = null),
+    end: () => {
+      // 놓으면 바로 닫아 방을 확정 직전 상태(closed)로 만든다. 크기 0이면 점이 비어 있어 닫지 않는다.
+      if (grab.current?.kind === 'rect') useTraceStore.getState().closeTrace()
+      grab.current = null
+    },
     cancel: () => (grab.current = null), // ponytail: 트레이싱 점 드래그 취소 시 원위치 복원 없음(Undo 비대상 임시 상태). 필요하면 grab에 시작 좌표 저장
     click: (p, r, { shift }) => {
       grab.current = null
@@ -176,6 +197,28 @@ function Preview({ labelRoot }: { labelRoot: RefObject<HTMLDivElement | null> })
           <span className="scene-label">{Math.round(pv.length * 10) / 10}cm</span>
         </Html>
       )}
+    </>
+  )
+}
+
+/** 직사각형(드래그로 그린 것 포함)이면 가로·세로 길이(cm) 라벨. 변 가운데에 둔다. */
+function RectLabels({ labelRoot }: { labelRoot: RefObject<HTMLDivElement | null> }) {
+  const cornersPx = useTraceStore((s) => s.corners)
+  const scale = useTraceStore((s) => s.scale)
+  const pts = useMemo(() => cornersCm({ corners: cornersPx, scale }), [cornersPx, scale])
+  if (pts.length !== 4) return null
+  const [a, b, c, d] = pts
+  const same = (u: number, v: number) => Math.abs(u - v) < 1e-6
+  if (!(same(a[1], b[1]) && same(b[0], c[0]) && same(c[1], d[1]) && same(d[0], a[0]))) return null
+  const label = (from: Point2, to: Point2, len: number) => (
+    <Html portal={labelRoot as RefObject<HTMLElement>} position={[(from[0] + to[0]) / 2, DOT_Y, (from[1] + to[1]) / 2]} center style={{ pointerEvents: 'none' }}>
+      <span className="scene-label">{Math.round(len * 10) / 10}cm</span>
+    </Html>
+  )
+  return (
+    <>
+      {label(a, b, Math.abs(b[0] - a[0]))}
+      {label(b, c, Math.abs(c[1] - b[1]))}
     </>
   )
 }
@@ -241,6 +284,7 @@ export default function TraceCanvas() {
         {image && r ? <ImagePlane url={image.url} width={r.width} depth={r.depth} /> : <BlankArea area={area} />}
         <Ghosts ghosts={ghosts} />
         <TraceMarks />
+        <RectLabels labelRoot={labelRoot} />
         <Preview labelRoot={labelRoot} />
         <TraceInput />
       </Canvas>
