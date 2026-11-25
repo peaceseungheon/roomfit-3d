@@ -3,6 +3,7 @@ import { ADSENSE_CLIENT, ADSENSE_SLOT, CONTACT_EMAIL, EFFECTIVE_DATE } from './c
 import { loadAds } from '../consent/adLoader'
 import { adsConfigured, consentAction, readConsent, shouldLoadAds, writeConsent } from '../consent/store'
 import { dimRows } from './dimTable'
+import { TEMPLATES } from '../store/templates'
 import { detectWebgl } from '../ui/webgl'
 import { registerSw } from '../pwa/register'
 import '../theme.css'
@@ -22,6 +23,20 @@ if (body) {
     tr.insertCell().textContent = r.name
     tr.insertCell().textContent = r.dims
   }
+}
+
+const cards = document.querySelector<HTMLUListElement>('#template-cards')
+for (const t of TEMPLATES) {
+  const a = document.createElement('a')
+  a.href = `/editor.html#t=${t.id}`
+  for (const [tag, text] of [['strong', t.name], ['span', t.desc], ['em', '이 배치로 시작 →']] as const) {
+    const el = document.createElement(tag)
+    el.textContent = text
+    a.append(el)
+  }
+  const li = document.createElement('li')
+  li.append(a)
+  cards?.append(li)
 }
 
 hide('[data-contact]', !CONTACT_EMAIL)

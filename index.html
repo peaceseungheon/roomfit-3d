@@ -28,13 +28,17 @@
         <path d="M7 26.5h18M7 24.8v3.4M25 24.8v3.4" stroke="#0f2a4a" stroke-width="1.6" stroke-linecap="round" />
       </svg>
       <span>RoomFit <small>3D</small></span>
+      <nav aria-label="주요 메뉴"><a href="#templates">예시 배치</a><a href="/guide.html">배치 가이드</a></nav>
     </header>
     <main>
       <section class="hero" aria-labelledby="h-hero">
         <div class="hero-copy">
           <h1 id="h-hero">내 방에 가구, 사기 전에 넣어보세요</h1>
           <p class="sub">실제 치수 그대로 · 가입 없이 · 설치 없이</p>
-          <a id="start" class="btn" href="/editor.html">시작하기</a>
+          <div class="cta">
+            <a id="start" class="btn" href="/editor.html">시작하기</a>
+            <a class="cta-link" href="#templates">예시 배치로 시작</a>
+          </div>
           <p id="webgl-error" role="alert" hidden>이 브라우저는 3D를 지원하지 않습니다. 최신 Chrome/Edge/Safari/Firefox를 사용하세요.</p>
         </div>
         <figure class="plan">
@@ -78,6 +82,12 @@
         <li><strong>문 열림 경고</strong><p>문이 열리는 반경과 가구가 겹치면 붉게 알려 줍니다.</p></li>
         <li><strong>시점 전환</strong><p>2D 평면, 3D 쿼터, 1인칭 눈높이로 둘러봅니다.</p></li>
       </ul>
+      <section id="templates" class="templates" aria-labelledby="h-templates">
+        <h2 id="h-templates">예시 배치로 시작</h2>
+        <p>방 크기별 예시를 열어 내 가구 치수로 바꿔 보세요. 작업 중이던 내용은 덮어쓰기 전에 확인을 묻습니다.</p>
+        <ul id="template-cards" class="cards"></ul>
+        <p><a href="/guide.html">평형별 배치 가이드 전체 보기</a></p>
+      </section>
       <details open>
         <summary><h2>사용법</h2></summary>
         <ol class="steps">
