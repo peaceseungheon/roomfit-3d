@@ -33,7 +33,7 @@ export default defineConfig({
   ],
   build: {
     rollupOptions: {
-      input: { index: 'index.html', editor: 'editor.html', privacy: 'privacy.html' },
+      input: { index: 'index.html', editor: 'editor.html', privacy: 'privacy.html', guide: 'guide.html' },
     },
   },
 })

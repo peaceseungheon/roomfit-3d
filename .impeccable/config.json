@@ -20,6 +20,15 @@
         ],
         "createdAt": "2026-11-23T09:58:03.234Z",
         "reason": "model verified: CSS is imported by src/landing/page.ts so static scan sees no styles; rendered h1 is clamp(2.1rem..3.6rem) vs 16px body (captures in .impeccable/review)"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "guide.html"
+        ],
+        "createdAt": "2026-11-25T04:37:27.001Z",
+        "reason": "model verified: same as index.html/privacy.html; CSS imported by src/landing/page.ts so static scan sees no styles; rendered h1 clamp(2.1rem..3.6rem), h2 1.5rem vs 16px body (guide.png capture 390px)"
       }
     ]
   }
