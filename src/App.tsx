@@ -16,6 +16,7 @@ import TopBar, { DimensionsToggle, SnapToggle } from './ui/TopBar'
 import WarningBadge from './ui/WarningBadge'
 import { useEditorKeys } from './ui/useEditorKeys'
 import { ChevronIcon } from './ui/icons'
+import { Analytics } from "@vercel/analytics/react"
 
 const WEBGL_OK = detectWebgl()
 const SHEET_LEVELS = ['min', 'mid', 'full'] as const
@@ -68,6 +69,7 @@ export default function App() {
       <TraceScreen stage={WEBGL_OK ? <TraceCanvas /> : null} />
       <StartDialog />
       <Toast />
+      <Analytics />
     </div>
   )
 }
