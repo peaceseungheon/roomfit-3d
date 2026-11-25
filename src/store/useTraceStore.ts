@@ -30,6 +30,8 @@ interface TraceState {
   active: boolean
   /** replace: 문서 전체 교체(첫 방 확정 전), add: 기존 방을 보존하고 추가 */
   mode: TraceMode
+  /** 이번 세션에서 만드는 방의 종류(FR-23). 확정할 때 방의 kind·이름 기본값이 된다 */
+  kind: string | null
   /** 평면 cm -> 문서 cm 이동량(doc = round(plane + offset)). replace 첫 확정 전·add+이미지 첫 방 전에는 null */
   offset: Point2 | null
   /** 이 세션에서 확정한 방 수. 1 이상이면 이미지·축척·기준선·start가 잠긴다 */
@@ -66,7 +68,7 @@ interface TraceState {
   /** 닫힌 뒤 선택한 점(corners 인덱스). [점 삭제] 대상. Undo 비대상 */
   selected: number | null
 
-  start: (mode?: TraceMode) => void
+  start: (mode?: TraceMode, kind?: string) => void
   setNeighborSnap: (on: boolean) => void
   cancel: () => void
   setOrtho: (on: boolean) => void
@@ -114,6 +116,8 @@ interface TraceState {
 const initial = {
   active: false,
   mode: 'replace' as TraceMode,
+  /** 확정하는 방에 붙일 종류(FR-23). 세션 동안 유지되고 이름은 번호로 구분된다 */
+  kind: null as string | null,
   offset: null as Point2 | null,
   confirmed: 0,
   lastHeight: TRACE_DEFAULT_HEIGHT,
@@ -199,12 +203,12 @@ export const SUGGEST_FAIL_NOTICE = '⚠ 윤곽을 읽지 못했습니다. 직접
 
 export const useTraceStore = create<TraceState>()((set, get) => ({
   ...initial,
-  start: (mode = 'replace') => {
+  start: (mode = 'replace', kind) => {
     if (get().confirmed > 0) return
     loadSeq++
     abortSuggest()
     revoke(get().image)
-    set({ ...blankState, mode, offset: mode === 'add' ? [0, 0] : null })
+    set({ ...blankState, mode, kind: kind ?? null, offset: mode === 'add' ? [0, 0] : null })
   },
   setNeighborSnap: (neighborSnap) => set({ neighborSnap }),
   cancel: () => {
@@ -255,6 +259,7 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
       image: img,
       ortho: s.ortho,
       mode: s.mode,
+      kind: s.kind,
       offset: s.mode === 'add' ? null : s.offset,
       confirmed: s.confirmed,
       neighborSnap: s.neighborSnap,
@@ -429,7 +434,7 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     const min: Point2 = [Math.min(...cm.map((p) => p[0])), Math.min(...cm.map((p) => p[1]))]
     let offset: Point2
     if (s.mode === 'replace' && s.confirmed === 0) {
-      if (!docStore.createPolygonRoom(pendingRoom, height, keepItems)) {
+      if (!docStore.createPolygonRoom(pendingRoom, height, keepItems, undefined, s.kind ?? undefined)) {
         useUiStore.getState().setNotice('⚠ 방을 만들지 못했습니다. 천장고(180~400)와 크기를 확인하세요')
         return false
       }
@@ -443,7 +448,7 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
         base = [-min[0] + points[0][0] - pendingRoom[0][0], -min[1] + points[0][1] - pendingRoom[0][1]]
       }
       const before = docStore.rooms
-      const id = docStore.addRoom({ height, points })
+      const id = docStore.addRoom({ height, points }, undefined, s.kind ?? undefined)
       if (!id) {
         useUiStore.getState().setNotice('⚠ 방을 추가하지 못했습니다. 방 개수(20)·다른 방과의 겹침·집 전체 크기(10000cm)를 확인하세요')
         return false

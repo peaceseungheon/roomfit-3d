@@ -349,7 +349,7 @@ function Dialog({ stage }: { stage?: ReactNode }) {
               confirmLabel="계속"
               onConfirm={() => {
                 setAskBlank(false)
-                useTraceStore.getState().start()
+                useTraceStore.getState().start(undefined, useTraceStore.getState().kind ?? undefined)
               }}
               onCancel={() => setAskBlank(false)}
             >

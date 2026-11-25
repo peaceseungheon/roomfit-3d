@@ -49,6 +49,7 @@ export default function RoomList() {
                   {r.name}
                 </button>
               )}
+              {r.kind && r.kind !== r.name && renaming?.id !== r.id && <span className="hint">{r.kind}</span>}
               {!single && renaming?.id !== r.id && (
                 <button onClick={() => setRenaming({ id: r.id, value: r.name })}>이름 변경</button>
               )}

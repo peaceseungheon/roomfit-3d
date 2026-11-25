@@ -14,6 +14,7 @@ import {
   shiftItems,
   withRoom,
 } from './rooms'
+import { roomNameForKind } from './roomKinds'
 import { DEFAULT_ROOM_ID, defaultRoomName, type DocData, type Item, type Room, type RoomShape } from './types'
 
 export const UNDO_LIMIT = 50
@@ -22,7 +23,8 @@ interface DocState extends DocData {
   /** 샘플 그대로이고 사용자가 아직 편집하지 않은 상태(AC-02-2). Undo 비대상. */
   pristine: boolean
   /** 방 목록에 방을 추가한다(기존 문서 보존). 실패하면 null. */
-  addRoom: (shape: RoomShape, name?: string) => string | null
+  /** name이 없으면 kind로 기본 이름(중복 시 번호), kind도 없으면 '방 N'. */
+  addRoom: (shape: RoomShape, name?: string, kind?: string) => string | null
   /** 마지막 방이거나 없는 id면 false. 가구는 삭제하지 않는다. */
   removeRoom: (id: string) => boolean
   /** trim 후 1~NAME_MAX 자가 아니거나 없는 id면 false. */
@@ -41,7 +43,7 @@ interface DocState extends DocData {
     keepItems?: boolean,
   ) => boolean
   /** 트레이싱 다각형으로 문서 전체 교체(Undo 1단계). validateRoom 실패 시 상태 유지 후 false. */
-  createPolygonRoom: (points: Room['points'], height: number, keepItems?: boolean, shift?: [number, number]) => boolean
+  createPolygonRoom: (points: Room['points'], height: number, keepItems?: boolean, shift?: [number, number], kind?: string) => boolean
   /** 규약 강제(y=0, 크기 clamp). 숫자가 유한하지 않으면 거부하고 false. 10cm 스냅은 scene 책임. */
   addItem: (item: Item) => boolean
   /** 없는 id이거나 유효하지 않은 값이면 상태를 유지하고 false. */
@@ -101,8 +103,9 @@ const replaceWithRoom = (
   items: Item[],
   keepItems: boolean,
   shift?: [number, number],
+  kind?: string,
 ): DocData | null => {
-  const room: Room = { id: DEFAULT_ROOM_ID, name: defaultRoomName(1), height: shape.height, points: shape.points }
+  const room: Room = { id: DEFAULT_ROOM_ID, name: kind ?? defaultRoomName(1), height: shape.height, points: shape.points, ...(kind && { kind }) }
   return finalizeDoc([room], keepItems ? shiftItems(items, shift) : [])
 }
 
@@ -113,14 +116,14 @@ export const useDocStore = create<DocState>()(
       return {
         ...sample,
         pristine: true,
-        addRoom: (shape, name) => {
+        addRoom: (shape, name, kind) => {
           if (isDragging()) return null
           const s = get()
           if (s.rooms.length >= ROOMS_MAX || validateRoom(shape).length) return null
-          const nm = (name ?? defaultRoomName(s.rooms.length + 1)).trim()
+          const nm = (name ?? (kind ? roomNameForKind(kind, s.rooms) : defaultRoomName(s.rooms.length + 1))).trim()
           if (nm.length < 1 || nm.length > NAME_MAX) return null
           if (s.rooms.some((r) => roomsOverlap(r.points, shape.points))) return null
-          const rooms: Room[] = [...s.rooms, { id: nextRoomId(s.rooms), name: nm, height: shape.height, points: shape.points }]
+          const rooms: Room[] = [...s.rooms, { id: nextRoomId(s.rooms), name: nm, height: shape.height, points: shape.points, ...(kind && { kind }) }]
           const shifted = shiftDocument({ rooms, items: s.items }, planShift(rooms))
           const doc = finalizeDoc(shifted.rooms, shifted.items)
           if (!doc) return null
@@ -181,10 +184,10 @@ export const useDocStore = create<DocState>()(
           set({ ...doc, pristine: false })
           return true
         },
-        createPolygonRoom: (points, height, keepItems = true, shift) => {
+        createPolygonRoom: (points, height, keepItems = true, shift, kind) => {
           const shape = { height, points }
           if (validateRoom(shape).length) return false
-          const doc = replaceWithRoom(shape, get().items, keepItems, shift)
+          const doc = replaceWithRoom(shape, get().items, keepItems, shift, kind)
           if (!doc) return false
           set({ ...doc, pristine: false })
           return true

@@ -22,14 +22,14 @@ React + Vite + TypeScript, Three.js + R3F + drei, @use-gesture/react, Zustand + 
 - 충돌과 문 열림 반경 침범은 `Box3.intersectsBox`로 판정하고, 침범한 가구는 붉은색으로 하이라이트한다.
 - 카메라 뷰는 2D 직교, 3D 쿼터, 1인칭 눈높이 고정(약 160cm) 세 가지다. 자유 보행은 v2.0 범위다.
 
-## 저장 JSON (version "1.1", 읽기는 "1.0"도 지원)
+## 저장 JSON (version "1.2", 읽기는 "1.0"·"1.1"도 지원)
 ```
-{ projectInfo:{version,lastModified}, rooms:[{id,name,height,points:[[x,z]...]},...],
+{ projectInfo:{version,lastModified}, rooms:[{id,name,kind?,height,points:[[x,z]...]},...],
   items:[{id,type:"FURNITURE"|"FIXTURE",modelType,name?,position:[x,y,z],
           rotation:[x,y,z],size:[x,y,z],color?, elevation?:number, doorSwing?:{direction,radius,angle}}] }
 ```
 - `elevation`(선택, cm): 바닥 위 높이. 창·콘센트 전용이며 문(DOOR*)과 가구에서는 무시한다. 없으면 기본값(창 90, 콘센트 30). 있으면 유한수이고 0 이상이어야 한다. version은 "1.1".
-- 1.0 저장본(`room`)도 읽을 수 있고 다음 저장은 1.1로 나간다.
+- `Room.kind`(선택, 최대 20자 문자열, FR-23): 방 종류. 별도 목록 없이 방에만 저장하며 없으면 비운다. 1.0 저장본(`room`)·1.1도 읽을 수 있고 다음 저장은 1.2로 나간다.
 - 고정 요소 `modelType`: `DOOR_ENTRANCE`(현관문), `DOOR_SINGLE`(방문), `WINDOW`, `OUTLET`. 씬은 DOOR/WINDOW/OUTLET 접두어로 종류를 구분한다. 고정 요소 방향은 저장 `rotation`이 아니라 가장 가까운 벽 방향에서 유도한다.
 - 가구 14종과 고정 요소 4종의 `modelType`·한글명·기본 크기·기본 색은 `src/store/catalog.ts` 한 곳에서만 정의한다(PRD FR-08). 카탈로그 치수는 W×D×H, 저장 `size`는 [W,H,D]다.
 - 치수 박스(PRD FR-09): `type:"FURNITURE"`, `modelType:"DIMENSION_BOX"`. 카탈로그 14종에는 포함하지 않으며 `src/store/catalog.ts`의 `DIMENSION_BOX` 상수 한 곳에서 정의한다. 스키마는 일반 가구와 같다(`size`=[W,H,D], W·D 1~1000, H 1~500, version "1.1"). `name`은 선택(없으면 표시명 '치수 박스'), `color`는 선택(기본 `#90caf9`). `category`(선택): 카탈로그 14종 modelType 중 하나, 없으면 '기타'(링크 없음). 제휴 링크는 이 종류와 폭으로 고른다(저장 version은 "1.1" 그대로). 반투명 렌더링은 씬이 modelType으로 판별한다(AC-08-8).

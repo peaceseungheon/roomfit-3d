@@ -1,6 +1,7 @@
 import { DEFAULT_ROOM_ID, PLAN_EXTENT_MAX, defaultRoomName, type DocumentJson, type Item, type Point2, type Room, type RoomShape, type Vec3 } from '../store/types'
 import { ceilingForItem } from '../store/rooms'
 import { FURNITURE_CATALOG } from '../store/catalog'
+import { KIND_MAX } from '../store/roomKinds'
 import { roomsOverlap } from './roomOverlap'
 
 // 기존 import 경로 유지용 re-export. 정의는 store/types.ts(순수 상수)에 있다.
@@ -47,7 +48,9 @@ function checkRoom(room: unknown, errs: ValidationError[], path = 'room'): Point
     errs.push({ path, message: '필수 필드입니다' })
     return null
   }
-  const { height, points } = room
+  const { height, points, kind } = room
+  if (kind !== undefined && (typeof kind !== 'string' || kind.length > KIND_MAX))
+    errs.push({ path: `${path}.kind`, message: `${KIND_MAX}자 이하 문자열이어야 합니다` })
   if (!isNum(height) || height < CEIL_MIN || height > CEIL_MAX)
     errs.push({ path: `${path}.height`, message: `${CEIL_MIN}~${CEIL_MAX}cm 숫자여야 합니다` })
   if (!Array.isArray(points) || points.length < 3 || points.length > POINTS_MAX) {
@@ -167,7 +170,7 @@ function checkItem(it: unknown, i: number, errs: ValidationError[], ids: Set<str
 
 /**
  * 불러오기 검증. 예외를 던지지 않고 필드 경로 포함 오류 목록을 반환한다.
- * "1.1"(rooms 배열)과 "1.0"(room 1개)을 받고, 1.0은 rooms 1개로 감싼 1.1 형태로 돌려준다.
+ * "1.1"·"1.2"(rooms 배열)과 "1.0"(room 1개)을 받고, 1.0은 rooms 1개로 감싼 1.1 형태로 돌려준다.
  */
 export function validateDocument(input: unknown): Result<DocumentJson> {
   const errs: ValidationError[] = []
@@ -175,13 +178,13 @@ export function validateDocument(input: unknown): Result<DocumentJson> {
   const info = input.projectInfo
   // 1.0이거나, 버전을 모르는데 rooms 없이 room만 있으면 1.0 모양으로 검사한다(오류 경로 room.*)
   const version = isObj(info) ? info.version : undefined
-  const legacy = version === '1.0' || (version !== '1.1' && !('rooms' in input) && 'room' in input)
+  const legacy = version === '1.0' || (version !== '1.1' && version !== '1.2' && !('rooms' in input) && 'room' in input)
   if (!isObj(info)) errs.push({ path: 'projectInfo', message: '필수 필드입니다' })
   else {
-    if (info.version !== '1.0' && info.version !== '1.1')
+    if (info.version !== '1.0' && info.version !== '1.1' && info.version !== '1.2')
       errs.push({
         path: 'projectInfo.version',
-        message: `지원하지 않는 버전입니다 (필요: "1.0" 또는 "1.1", 입력: ${JSON.stringify(info.version)})`,
+        message: `지원하지 않는 버전입니다 (필요: "1.0"·"1.1"·"1.2", 입력: ${JSON.stringify(info.version)})`,
       })
     if (typeof info.lastModified !== 'string')
       errs.push({ path: 'projectInfo.lastModified', message: '필수 문자열입니다' })
@@ -201,7 +204,7 @@ export function validateDocument(input: unknown): Result<DocumentJson> {
   return {
     ok: true,
     value: {
-      projectInfo: { version: '1.1', lastModified: (info as { lastModified: string }).lastModified },
+      projectInfo: { version: '1.2', lastModified: (info as { lastModified: string }).lastModified },
       rooms: rooms as Room[],
       items: input.items as Item[],
     },

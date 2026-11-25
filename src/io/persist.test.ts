@@ -30,9 +30,9 @@ beforeEach(() => {
 })
 
 describe('serializeDocument', () => {
-  it('version 1.1과 rooms를 쓰고 room 키는 쓰지 않는다', () => {
+  it('version 1.2와 rooms를 쓰고 room 키는 쓰지 않는다', () => {
     const out = JSON.parse(serializeDocument(createSample()))
-    expect(out.projectInfo.version).toBe('1.1')
+    expect(out.projectInfo.version).toBe('1.2')
     expect(out.rooms).toHaveLength(1)
     expect(out).not.toHaveProperty('room')
   })
@@ -59,11 +59,11 @@ describe('restoreSaved', () => {
     expect(s.items).toEqual(createSample().items)
   })
 
-  it('1.0 복원 뒤 저장 문자열의 version은 1.1이다', () => {
+  it('1.0 복원 뒤 저장 문자열의 version은 1.2이다', () => {
     restoreSaved(fakeStorage({ [KEY]: legacyText() }))
     const s = useDocStore.getState()
     const out = JSON.parse(serializeDocument({ rooms: s.rooms, items: s.items }))
-    expect(out.projectInfo.version).toBe('1.1')
+    expect(out.projectInfo.version).toBe('1.2')
     expect(out.rooms).toHaveLength(1)
   })
 

@@ -21,6 +21,8 @@ export interface RoomForm {
   notches?: NotchSpec[]
   /** 방 추가 시 활성 방 기준 방향. 없으면 오른쪽 */
   side?: AddSide
+  /** 방 추가 시 고른 방 종류(FR-23). 없으면 '방 N' 이름 */
+  roomKind?: string
 }
 
 const num = (s: string): number => (/^-?\d+$/.test(s.trim()) ? Number(s) : NaN)
@@ -86,7 +88,7 @@ export function submitAddRoomForm(f: RoomForm): string | null {
   if (isDragging() || Object.keys(roomFormErrors(f)).length) return null
   const room = formRoom(f)
   if (!room) return null
-  const id = useDocStore.getState().addRoom({ height: room.height, points: placeBeside(getActiveRoom(), room.points, f.side ?? 'right') })
+  const id = useDocStore.getState().addRoom({ height: room.height, points: placeBeside(getActiveRoom(), room.points, f.side ?? 'right') }, undefined, f.roomKind)
   if (id) useUiStore.getState().setActiveRoomId(id)
   return id
 }

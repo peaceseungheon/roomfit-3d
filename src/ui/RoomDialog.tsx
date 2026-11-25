@@ -8,6 +8,7 @@ import { useUiStore } from '../store/useUiStore'
 import Modal from './Modal'
 import { countOutsideFurniture, formItems, formRoom, initialRoomForm, notchesError, roomFormErrors, submitAddRoomForm, submitRoomForm, type RoomForm } from './roomForm'
 import { WarnIcon } from './icons'
+import RoomKindChips from './RoomKindChips'
 import RoomPreview from './RoomPreview'
 import NumField from './NumField'
 import NotchSection from './NotchSection'
@@ -31,13 +32,15 @@ interface Props {
 export default function RoomDialog({ onClose, mode = 'replace' }: Props) {
   const add = mode === 'add'
   const items = useDocStore((s) => s.items)
+  const rooms = useDocStore((s) => s.rooms)
   const pristine = useDocStore.getState().pristine // 열려 있는 동안 바뀌지 않으므로 구독하지 않는다
   // 손대지 않은 샘플의 가구는 사용자 데이터가 아니므로 묻지 않고 비운다(AC-01-6).
   const hasItems = !add && !pristine && items.length > 0
   const [form, setForm] = useState<RoomForm>(() => ({ ...initialRoomForm(getActiveRoom()), keepItems: !pristine }))
   const errors: RoomInputErrors = roomFormErrors(form)
   const staleNotches = notchesError(form)
-  const invalid = Object.keys(errors).length > 0 || staleNotches !== null
+  const needKind = add && !form.roomKind // 방 추가는 종류 선택이 첫 단계(AC-23-1)
+  const invalid = Object.keys(errors).length > 0 || staleNotches !== null || needKind
   const next = formRoom(form)
   const outside = next && hasItems && form.keepItems ? countOutsideFurniture(next, formItems(form, items)) : 0
   const set = (k: NumKey) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
@@ -53,6 +56,7 @@ export default function RoomDialog({ onClose, mode = 'replace' }: Props) {
   return (
     <Modal title={add ? '방 추가' : '방 만들기'} onClose={onClose}>
       <form onSubmit={submit} noValidate>
+        {add && <RoomKindChips rooms={rooms} value={form.roomKind} onChange={(k) => setForm((f) => ({ ...f, roomKind: k }))} />}
         <div role="radiogroup" aria-label="방 모양" className="row">
           {(['rect', 'L'] as const).map((k) => (
             <label key={k} className="radio-label">
@@ -107,8 +111,9 @@ export default function RoomDialog({ onClose, mode = 'replace' }: Props) {
         <div className="row">
           <button
             type="button"
+            disabled={needKind}
             onClick={() => {
-              useTraceStore.getState().start(mode)
+              useTraceStore.getState().start(mode, form.roomKind)
               onClose()
             }}
           >
