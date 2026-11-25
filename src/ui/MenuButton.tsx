@@ -6,11 +6,11 @@ import { resolveHash } from '../io/shareLink'
 import { readImportFile } from '../io/importFile'
 import { serializeDocument } from '../io/persist'
 import { currentInstallMode, promptInstall } from '../pwa/install'
-import { TEMPLATES } from '../store/templates'
 import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { DocData } from '../store/types'
 import { importDocument, resetToSample } from './actions'
+import TemplateList from './TemplateList'
 import { usePopover } from './usePopover'
 import ConfirmDialog from './ConfirmDialog'
 import { CheckIcon, MenuIcon, WarnIcon } from './icons'
@@ -147,16 +147,7 @@ export default function MenuButton() {
       )}
       {dlg?.kind === 'templates' && (
         <ConfirmDialog title="템플릿 불러오기" alertOnly info confirmLabel="닫기" onConfirm={() => setDlg(null)} onCancel={() => setDlg(null)}>
-          <ul className="template-list">
-            {TEMPLATES.map((t) => (
-              <li key={t.id}>
-                <button onClick={() => setDlg({ kind: 'import', doc: t.doc() })}>
-                  <strong>{t.name}</strong>
-                  <span className="hint"> {t.desc}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <TemplateList onPick={(doc) => setDlg({ kind: 'import', doc })} />
         </ConfirmDialog>
       )}
       {dlg?.kind === 'import' && (

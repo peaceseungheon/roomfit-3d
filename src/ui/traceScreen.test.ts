@@ -65,7 +65,13 @@ describe('TraceScreen 확정 흐름', () => {
     const m = screen()
     for (const w of ['배경 없이 그리기', '기준선 다시 찍기', '실제 길이', 'type="file"']) expect(m).not.toContain(w)
   })
+  it('손대지 않은 샘플이면 트레이싱 확정에서도 기존 가구를 묻지 않는다(AC-01-6)', () => {
+    t().start()
+    closedSession()
+    expect(screen()).not.toContain('기존 가구')
+  })
   it('방 1개 replace 흐름: 기존 버튼 유지 + 다음 방 따기 하나만 추가', () => {
+    useDocStore.setState({ pristine: false })
     t().start()
     closedSession()
     const m = screen()

@@ -130,7 +130,12 @@ describe('RoomDialog modes', () => {
     expect(out).toContain('그려서 만들기(평면도 배경 선택 가능)')
     expect(out).not.toContain('다음 단계에서')
   })
+  it('손대지 않은 샘플이면 기존 가구 선택을 묻지 않는다(AC-01-6)', () => {
+    const out = html(createElement(RoomDialog, { onClose: () => {} }))
+    expect(out).not.toContain('기존 가구')
+  })
   it('replace mode keeps the existing create inputs and buttons', () => {
+    useDocStore.setState({ pristine: false })
     const out = html(createElement(RoomDialog, { onClose: () => {} }))
     for (const label of ['방 만들기', '가로', '세로', '천장고', '기존 가구', '그려서 만들기', '취소', '만들기']) {
       expect(out).toContain(label)

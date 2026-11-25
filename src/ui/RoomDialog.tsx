@@ -31,8 +31,10 @@ interface Props {
 export default function RoomDialog({ onClose, mode = 'replace' }: Props) {
   const add = mode === 'add'
   const items = useDocStore((s) => s.items)
-  const hasItems = !add && items.length > 0
-  const [form, setForm] = useState<RoomForm>(() => initialRoomForm(getActiveRoom()))
+  const pristine = useDocStore.getState().pristine // 열려 있는 동안 바뀌지 않으므로 구독하지 않는다
+  // 손대지 않은 샘플의 가구는 사용자 데이터가 아니므로 묻지 않고 비운다(AC-01-6).
+  const hasItems = !add && !pristine && items.length > 0
+  const [form, setForm] = useState<RoomForm>(() => ({ ...initialRoomForm(getActiveRoom()), keepItems: !pristine }))
   const errors: RoomInputErrors = roomFormErrors(form)
   const staleNotches = notchesError(form)
   const invalid = Object.keys(errors).length > 0 || staleNotches !== null

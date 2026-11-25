@@ -6,12 +6,13 @@ import { addRoomBlockedReason } from './roomForm'
 /** 닫힌 다각형 확정(천장고·기존 가구·[방 생성]·[방 생성 후 다음 방 따기]). */
 export default function TraceConfirm() {
   const rooms = useDocStore((s) => s.rooms)
-  const hasItems = useDocStore((s) => s.items.length > 0)
+  const pristine = useDocStore((s) => s.pristine)
+  const hasItems = useDocStore((s) => s.items.length > 0 && !s.pristine) // 손대지 않은 샘플 가구는 묻지 않고 비운다
   const mode = useTraceStore((s) => s.mode)
   const confirmed = useTraceStore((s) => s.confirmed)
   const lastHeight = useTraceStore((s) => s.lastHeight)
   const [height, setHeight] = useState(String(lastHeight))
-  const [keep, setKeep] = useState(true)
+  const [keep, setKeep] = useState(!pristine)
   const h = /^\d+$/.test(height.trim()) ? Number(height) : NaN
   const bad = !(h >= 180 && h <= 400)
   const firstReplace = mode === 'replace' && confirmed === 0 // 문서 전체를 교체하는 첫 방은 방 개수 상한과 무관

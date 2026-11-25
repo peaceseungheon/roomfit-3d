@@ -8,6 +8,7 @@ import CatalogList from './ui/CatalogList'
 import DimensionBoxForm from './ui/DimensionBoxForm'
 import DimensionPanel from './ui/DimensionPanel'
 import { FixtureList, RoomSection } from './ui/PanelSections'
+import StartDialog from './ui/StartDialog'
 import Toast from './ui/Toast'
 import TraceScreen from './ui/TraceScreen'
 import WallEditor from './ui/WallEditor'
@@ -65,6 +66,7 @@ export default function App() {
         </aside>
       </div>
       <TraceScreen stage={WEBGL_OK ? <TraceCanvas /> : null} />
+      <StartDialog />
       <Toast />
     </div>
   )
