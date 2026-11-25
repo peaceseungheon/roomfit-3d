@@ -1,7 +1,7 @@
 import { DEFAULT_ROOM_ID, defaultRoomName, type DocData, type Item } from './types'
 import { catalogSize, findCatalog } from './catalog'
 
-const spec = (modelType: string): Pick<Item, 'modelType' | 'name' | 'size' | 'color'> => {
+export const spec = (modelType: string): Pick<Item, 'modelType' | 'name' | 'size' | 'color'> => {
   const c = findCatalog(modelType)
   if (!c) throw new Error(`카탈로그에 없는 modelType: ${modelType}`)
   return { modelType, name: c.name, size: catalogSize(c), color: c.color }
