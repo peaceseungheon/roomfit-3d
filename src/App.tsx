@@ -3,6 +3,7 @@ import { detectWebgl } from './ui/webgl'
 import { WebglUnsupported } from './ui/WebglNotice'
 import Scene from './scene/Scene'
 import TraceCanvas from './scene/TraceCanvas'
+import RoomLayoutCanvas from './scene/RoomLayoutCanvas'
 import { useDocStore } from './store/useDocStore'
 import CatalogList from './ui/CatalogList'
 import DimensionBoxForm from './ui/DimensionBoxForm'
@@ -11,6 +12,7 @@ import { FixtureList, RoomSection } from './ui/PanelSections'
 import StartDialog from './ui/StartDialog'
 import Toast from './ui/Toast'
 import TraceScreen from './ui/TraceScreen'
+import RoomLayoutScreen from './ui/RoomLayoutScreen'
 import WallEditor from './ui/WallEditor'
 import TopBar, { DimensionsToggle, SnapToggle } from './ui/TopBar'
 import WarningBadge from './ui/WarningBadge'
@@ -67,6 +69,7 @@ export default function App() {
         </aside>
       </div>
       <TraceScreen stage={WEBGL_OK ? <TraceCanvas /> : null} />
+      <RoomLayoutScreen stage={WEBGL_OK ? <RoomLayoutCanvas /> : <WebglUnsupported />} />
       <StartDialog />
       <Toast />
       <Analytics />

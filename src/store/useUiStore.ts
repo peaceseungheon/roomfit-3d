@@ -27,6 +27,10 @@ interface UiState {
   showDimensions: boolean
   /** 활성 방 id. null이면 rooms[0]으로 해석된다. Undo 비대상 */
   activeRoomId: string | null
+  /** 방 배치 화면(S-10) 열림(FR-23). 저장 대상 아님 */
+  layoutOpen: boolean
+  openLayout: () => void
+  closeLayout: () => void
   select: (id: string | null) => void
   setActiveRoomId: (id: string | null) => void
   setCameraMode: (m: CameraMode) => void
@@ -47,6 +51,9 @@ export const useUiStore = create<UiState>()((set) => ({
   snapEnabled: true,
   showDimensions: true,
   activeRoomId: null,
+  layoutOpen: false,
+  openLayout: () => useDocStore.getState().rooms.length >= 2 && set({ layoutOpen: true }),
+  closeLayout: () => set({ layoutOpen: false }),
   select: (selectedId) => set({ selectedId }),
   setActiveRoomId: (activeRoomId) => set({ activeRoomId }),
   setCameraMode: (cameraMode) => set({ cameraMode }),
@@ -59,6 +66,8 @@ export const useUiStore = create<UiState>()((set) => ({
 
 // Undo/Redo/불러오기/초기화 뒤 사라진 항목의 선택을 해제한다
 useDocStore.subscribe((s) => {
+  // 방이 1개 이하면 방 배치 화면은 의미가 없다(삭제·불러오기·Undo)
+  if (s.rooms.length < 2 && useUiStore.getState().layoutOpen) useUiStore.getState().closeLayout()
   const id = useUiStore.getState().selectedId
   if (id && !s.items.some((it) => it.id === id)) useUiStore.getState().select(null)
 })

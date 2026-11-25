@@ -15,6 +15,7 @@ import {
   withRoom,
 } from './rooms'
 import { roomNameForKind } from './roomKinds'
+import { moveRoomDoc } from './roomMove'
 import { DEFAULT_ROOM_ID, defaultRoomName, type DocData, type Item, type Room, type RoomShape } from './types'
 
 export const UNDO_LIMIT = 50
@@ -31,6 +32,8 @@ interface DocState extends DocData {
   renameRoom: (id: string, name: string) => boolean
   /** 방 하나의 height·points를 교체한다. 다른 방과 겹치면 false. */
   setRoomGeometry: (id: string, shape: RoomShape) => boolean
+  /** 방 하나와 그 방의 가구·고정 요소를 같이 평행이동(Undo 1단계). 겹침·10000cm 초과면 상태 유지 후 사유. */
+  moveRoom: (id: string, delta: [number, number]) => true | { ok: false; reason: string }
   /** 입력이 validateRoomInput 범위를 벗어나면 상태를 바꾸지 않고 false. */
   createRectRoom: (width: number, depth: number, height: number, keepItems?: boolean) => boolean
   /** ㄱ자: 우상단(max x, min z) 모서리를 cutWidth x cutDepth 만큼 잘라낸다(AC-03-2). 범위 밖이면 false. */
@@ -167,6 +170,15 @@ export const useDocStore = create<DocState>()(
           })
           if (!doc) return false
           set({ rooms: doc.rooms, items: doc.items, pristine: false })
+          return true
+        },
+        moveRoom: (id, delta) => {
+          if (isDragging()) return { ok: false, reason: '드래그 중에는 이동할 수 없습니다' }
+          if (delta[0] === 0 && delta[1] === 0) return true
+          const s = get()
+          const r = moveRoomDoc({ rooms: s.rooms, items: s.items }, id, delta)
+          if (!('doc' in r)) return { ok: false, reason: r.reason }
+          set({ rooms: r.doc.rooms, items: r.doc.items, pristine: false })
           return true
         },
         createRectRoom: (w, d, height, keepItems = true) => {

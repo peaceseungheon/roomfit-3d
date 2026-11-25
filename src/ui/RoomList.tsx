@@ -60,6 +60,7 @@ export default function RoomList() {
         <button disabled={blocked !== null} title={blocked ?? undefined} onClick={() => setAdding(true)}>
           방 추가
         </button>
+        {!single && <button onClick={() => useUiStore.getState().openLayout()}>방 배치</button>}
       </div>
       {blocked && <p className="hint">{blocked}</p>}
       {deleting && (
