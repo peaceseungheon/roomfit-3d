@@ -176,6 +176,8 @@ button.primary:hover:not(:disabled), button[type='submit']:hover:not(:disabled) 
 .draw-tools { margin: 8px 0; }
 .draw-tools .field { grid-template-columns: 1fr auto auto; }
 .draw-tools .field label { grid-column: 1 / -1; }
+.trace-drop input[type='file'] { display: block; box-sizing: border-box; width: 100%; max-width: 100%; padding: 0 8px 0 0; overflow: hidden; font-size: 13px; color: var(--muted); }
+.trace-drop input[type='file']::file-selector-button { min-height: 44px; margin-right: 10px; padding: 0 14px; font: inherit; font-weight: 600; color: var(--ink); background: var(--canvas); border: 0; border-right: 1px solid var(--line-strong); cursor: pointer; }
 .trace-bg { margin: 8px 0; }
 .trace-bg summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
 .trace-side { width: 300px; padding: 12px 16px; overflow: auto; border-left: 1px solid var(--line); }
