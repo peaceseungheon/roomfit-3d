@@ -32,7 +32,7 @@ interface TraceState {
   mode: TraceMode
   /** 이번 세션에서 만드는 방의 종류(FR-23). 확정할 때 방의 kind·이름 기본값이 된다 */
   kind: string | null
-  /** 평면 cm -> 문서 cm 이동량(doc = round(plane + offset)). replace 첫 확정 전·add+이미지 첫 방 전에는 null */
+  /** 평면 cm -> 문서 cm 이동량(doc = round(plane + offset)). replace 첫 확정 전·add+이미지 첫 방 전·빈 캔버스 add(그 방 하나만 그리고 활성 방 오른쪽에 놓음, FR-23)에는 null */
   offset: Point2 | null
   /** 이 세션에서 확정한 방 수. 1 이상이면 이미지·축척·기준선·start가 잠긴다 */
   confirmed: number
@@ -109,7 +109,7 @@ interface TraceState {
   applySuggestion: () => boolean
   /** 첫 점 클릭 또는 [닫기]. 실패 시 error 설정 + false(AC-04-3/4) */
   closeTrace: () => boolean
-  /** 닫힌 다각형을 방으로 확정(방 확정 1회 = Undo 1단계). next면 세션(이미지·축척·기준선·offset)을 유지하고 다음 방을 따고, 아니면 종료 */
+  /** 닫힌 다각형을 방으로 확정(방 확정 1회 = Undo 1단계). next면 세션(이미지·축척·기준선, 이미지 모드는 offset도)을 유지하고 다음 방을 따고, 아니면 종료 */
   commitTrace: (height?: number, keepItems?: boolean, next?: boolean) => boolean
 }
 
@@ -208,7 +208,8 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     loadSeq++
     abortSuggest()
     revoke(get().image)
-    set({ ...blankState, mode, kind: kind ?? null, offset: mode === 'add' ? [0, 0] : null })
+    // offset은 항상 null: 빈 캔버스 add는 그 방 하나만 보이고(FR-23), 이미지 add는 정렬 정보가 없어 첫 방 확정 전까지 숨긴다
+    set({ ...blankState, mode, kind: kind ?? null, offset: null })
   },
   setNeighborSnap: (neighborSnap) => set({ neighborSnap }),
   cancel: () => {
@@ -463,7 +464,8 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     }
     set({
       mode: 'add',
-      offset,
+      // 빈 캔버스는 기존 방을 보여 주지 않으므로 offset을 비워 다음 방도 활성 방 오른쪽에 놓는다
+      offset: s.image ? offset : null,
       confirmed: s.confirmed + 1,
       lastHeight: height,
       corners: [],

@@ -44,6 +44,7 @@ describe('고스트 인덱스와 격자', () => {
   it('error.overlapWith 인덱스는 ghostRooms 인덱스와 같다(doc.rooms 순서)', () => {
     useDocStore.setState({ rooms: [room('a', rect(0, 0, 300, 200)), room('b', rect(1000, 0, 1300, 200))], items: [] })
     t().start('add')
+    useTraceStore.setState({ offset: [0, 0] }) // 이웃 윤곽이 보이는 세션
     const ghosts = ghostRooms(t(), useDocStore.getState().rooms)
     for (const p of rect(1100, 50, 1200, 150)) t().addTracePoint(p[0], p[1], true)
     expect(t().closeTrace()).toBe(false)
@@ -70,6 +71,7 @@ describe('클릭 경로의 Shift 전달', () => {
   const place = (shift: boolean) => {
     useDocStore.setState({ rooms: [room('a', rect(0, 0, 300, 200))], items: [] })
     t().start('add')
+    useTraceStore.setState({ offset: [0, 0] }) // 이웃 윤곽이 보이는 세션
     t().setCursor(-3, 55, shift)
     const pv = previewPoint({ ...t() })!.point // 미리보기가 보여 준 점
     applyTraceClick([-3, 55], 5, shift)

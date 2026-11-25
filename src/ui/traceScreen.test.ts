@@ -112,7 +112,9 @@ describe('TraceScreen 확정 흐름', () => {
     t().start()
     expect(screen()).not.toContain('이웃 방에 붙이기')
     t().cancel()
-    t().start('add')
+    t().start('add') // 빈 캔버스 add는 그 방 하나만 보여 준다(FR-23)
+    expect(screen()).not.toContain('이웃 방에 붙이기')
+    useTraceStore.setState({ offset: [0, 0] }) // 이미지 add 첫 방 확정 뒤처럼 윤곽이 보이는 상태
     const m = screen()
     expect(m).toContain('이웃 방에 붙이기')
     expect(m).toContain('Shift를 누르고 있으면 이웃 방 스냅이 꺼집니다')

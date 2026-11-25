@@ -24,6 +24,11 @@ beforeEach(() => {
   useUiStore.setState({ notice: null, snapEnabled: true })
 })
 
+const startGhost = () => {
+  t().start('add')
+  useTraceStore.setState({ offset: [0, 0] }) // 이웃 방 윤곽이 보이는 세션(이미지 add 첫 방 확정 뒤와 같은 상태)
+}
+
 describe('세션 시작', () => {
   it('start()는 replace, offset null', () => {
     t().start()
@@ -36,9 +41,9 @@ describe('세션 시작', () => {
   it('blankArea([])는 기본 영역', () => {
     expect(blankArea([])).toEqual({ minX: 0, minZ: 0, maxX: 3000, maxZ: 3000 })
   })
-  it('start("add")는 offset [0,0]이고 기존 방 왼쪽까지 그릴 수 있다', () => {
+  it('offset [0,0] 세션(이미지 add 첫 방 확정 뒤 상태)은 기존 방 왼쪽까지 그릴 수 있다', () => {
     useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
-    t().start('add')
+    startGhost()
     expect(t().offset).toEqual([0, 0])
     expect(t().addTracePoint(-500, 50)).toBe(true)
     expect(t().corners[0]).toEqual([-500, 50])
@@ -57,7 +62,7 @@ describe('세션 시작', () => {
 
 describe('setImage와 잠금', () => {
   it('setImage는 mode·confirmed·ortho를 유지하고 add + 이미지면 offset null', () => {
-    t().start('add')
+    startGhost()
     t().setOrtho(false)
     t().setNeighborSnap(false)
     t().setImage(img)
@@ -68,7 +73,7 @@ describe('setImage와 잠금', () => {
     expect(t().image).toEqual(img)
   })
   it('confirmed > 0이면 setImage·redoBaseline·start·setBaselinePoint는 무시', async () => {
-    t().start('add')
+    startGhost()
     useTraceStore.setState({ confirmed: 1 })
     t().setImage(img)
     expect(t().image).toBeNull()
@@ -117,7 +122,7 @@ const closeOk = (pts: Point2[], extra: Partial<ReturnType<typeof t>> = {}) => {
 describe('commitTrace replace -> add', () => {
   it('첫 방 replace, 이어 add. Undo는 방당 1단계', () => {
     t().start()
-    closeOk(rect(100, 100, 400, 300))
+    closeOk(rect(100, 100, 400, 300), { image: img })
     expect(t().commitTrace(240, true, true)).toBe(true)
     expect(doc().rooms).toHaveLength(1)
     expect(doc().rooms[0].points).toEqual(rect(0, 0, 300, 200))
@@ -170,8 +175,8 @@ describe('commitTrace replace -> add', () => {
 describe('commitTrace add', () => {
   it('기존 방 왼쪽(음수)에 확정하면 문서가 이동하고 offset이 누적된다', () => {
     useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [{ ...createSample().items[0], position: [100, 0, 100] }] })
-    t().start('add')
-    closeOk(rect(-210, 0, -10, 200))
+    startGhost()
+    closeOk(rect(-210, 0, -10, 200), { image: img })
     expect(t().commitTrace(240, true, true)).toBe(true)
     expect(doc().rooms[0].points).toEqual(rect(210, 0, 510, 200))
     expect(doc().rooms[1].points).toEqual(rect(0, 0, 200, 200))
@@ -188,8 +193,8 @@ describe('commitTrace add', () => {
   })
   it('기존 방 위(음수 z)에 확정하면 문서가 z로 이동하고 다음 방이 이어진다', () => {
     useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
-    t().start('add')
-    closeOk(rect(0, -210, 300, -10))
+    startGhost()
+    closeOk(rect(0, -210, 300, -10), { image: img })
     expect(t().commitTrace(240, true, true)).toBe(true)
     expect(doc().rooms[0].points).toEqual(rect(0, 210, 300, 410))
     expect(doc().rooms[1].points).toEqual(rect(0, 0, 300, 200))
@@ -202,7 +207,7 @@ describe('commitTrace add', () => {
   })
   it('왼쪽 방 확정 결과도 저장 검증을 통과한다', () => {
     useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
-    t().start('add')
+    startGhost()
     closeOk(rect(-210, 0, -10, 200))
     t().commitTrace(240, true, true)
     const d = doc()
@@ -211,7 +216,7 @@ describe('commitTrace add', () => {
   it('add + 이미지 소수 축척에서도 방 간격 10cm가 유지된다', () => {
     useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
     useUiStore.setState({ activeRoomId: 'r1', snapEnabled: false })
-    t().start('add')
+    startGhost()
     t().setImage(img)
     closeOk(rect(50, 50, 250, 150), { scale: 0.37 })
     expect(t().commitTrace(240, true, true)).toBe(true)
@@ -226,7 +231,7 @@ describe('commitTrace add', () => {
   })
   it('add에서 집 전체가 10000cm를 넘는 윤곽은 닫히지 않는다', () => {
     useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
-    t().start('add')
+    startGhost()
     arm(rect(10000, 0, 10200, 200))
     expect(t().closeTrace()).toBe(false)
     expect(t().error?.message).toBe('집 전체 크기가 10000cm를 넘습니다')
@@ -235,7 +240,7 @@ describe('commitTrace add', () => {
   it.each([false, true])('add + 이미지 첫 방(반전=%s)은 활성 방 오른쪽에 놓이고 offset이 이어진다', (rev) => {
     useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
     useUiStore.setState({ activeRoomId: 'r1' })
-    t().start('add')
+    startGhost()
     t().setImage(img)
     const first = rect(50, 50, 250, 150)
     closeOk(rev ? [...first].reverse() : first, { scale: 1 })
@@ -250,7 +255,7 @@ describe('commitTrace add', () => {
   it('placeRightOf 결과가 겹치면 거부하고 세션을 유지한다', () => {
     useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200)), room('r2', rect(310, 0, 510, 200))], items: [] })
     useUiStore.setState({ activeRoomId: 'r1' })
-    t().start('add')
+    startGhost()
     t().setImage(img)
     closeOk(rect(50, 50, 250, 150), { scale: 1 })
     expect(t().commitTrace(240, true, true)).toBe(false)
@@ -263,7 +268,7 @@ describe('commitTrace add', () => {
   it('방 20개면 확정 실패 + notice', () => {
     const rooms = Array.from({ length: 20 }, (_, i) => room(`r${i + 1}`, rect(i * 110, 0, i * 110 + 100, 100)))
     useDocStore.setState({ rooms, items: [] })
-    t().start('add')
+    startGhost()
     closeOk(rect(0, 500, 100, 600))
     expect(t().commitTrace(240, true, true)).toBe(false)
     expect(useUiStore.getState().notice).toContain('20')
@@ -275,7 +280,7 @@ describe('commitTrace add', () => {
 describe('겹침 닫기와 취소', () => {
   it('겹치면 닫히지 않고 overlapWith를 담는다', () => {
     useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
-    t().start('add')
+    startGhost()
     arm(rect(100, 100, 400, 300))
     expect(t().closeTrace()).toBe(false)
     expect(t().error?.message).toBe(OVERLAP_MESSAGE)
@@ -284,7 +289,7 @@ describe('겹침 닫기와 취소', () => {
   })
   it('닫은 뒤 점 삭제로 겹치면 막히고 점이 복원된다', () => {
     useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
-    t().start('add')
+    startGhost()
     closeOk([[310, -100], [510, -100], [510, 300], [-100, 300], [-100, 250], [310, 250]])
     const before = t().corners
     expect(t().deleteTracePoint(5)).toBe(false)
@@ -310,7 +315,7 @@ import { previewPoint } from './useTraceStore'
 describe('placePoint 연결', () => {
   const addMode = () => {
     useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
-    t().start('add')
+    startGhost()
   }
   it('첫 점은 이웃 링 변에 붙고 free·체크 해제면 격자만', () => {
     addMode()
@@ -365,5 +370,82 @@ describe('placePoint 연결', () => {
     addMode()
     t().addTracePoint(9000, -9000)
     expect(t().corners[0]).toEqual([3300, -3000])
+  })
+})
+
+describe('FR-23 빈 캔버스 add는 그 방 하나만 보여 준다', () => {
+  const ghosts = () => ghostRooms(t(), doc().rooms)
+  const bounds = (i: number) => {
+    const p = doc().rooms[i].points
+    const xs = p.map((q) => q[0])
+    const zs = p.map((q) => q[1])
+    return [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)]
+  }
+  const one = () => {
+    useDocStore.setState({ rooms: [room('r1', rect(0, 0, 300, 200))], items: [] })
+    useUiStore.setState({ activeRoomId: 'r1' })
+  }
+
+  it('(a) 이미지 모드 add: 첫 방 전 고스트 없음, 확정 뒤 고스트·offset 생김', () => {
+    one()
+    t().start('add')
+    t().setImage(img)
+    expect(t().offset).toBeNull()
+    expect(ghosts()).toEqual([])
+    closeOk(rect(50, 50, 250, 150), { scale: 1 })
+    expect(t().commitTrace(240, true, true)).toBe(true)
+    expect(t().offset).toEqual([260, -50])
+    expect(ghosts()).toHaveLength(2)
+    expect(ghosts()[0]).toEqual(rect(-260, 50, 40, 250))
+  })
+  it('(b) replace 첫 방: 문서 교체, 점 좌표는 원점 정규화', () => {
+    t().start()
+    expect(t().offset).toBeNull()
+    closeOk(rect(100, 100, 400, 300))
+    expect(t().commitTrace(240, true, false)).toBe(true)
+    expect(doc().rooms).toHaveLength(1)
+    expect(doc().rooms[0].points).toEqual(rect(0, 0, 300, 200))
+  })
+  it('(c) 빈 캔버스 add: 시작 직후 고스트·이웃 스냅 없음, 영역 3000²', () => {
+    one()
+    t().start('add')
+    expect(t().offset).toBeNull()
+    expect(ghosts()).toEqual([])
+    expect(blankArea(ghosts())).toEqual({ minX: 0, minZ: 0, maxX: 3000, maxZ: 3000 })
+    t().addTracePoint(322, 104)
+    expect(t().corners[0]).toEqual([320, 100]) // 이웃 링(310)에 붙지 않는다
+    t().cancel()
+    t().start('add')
+    t().addTracePoint(-500, 9000)
+    expect(t().corners[0]).toEqual([0, 3000])
+  })
+  it('(c) 확정하면 활성 방 오른쪽에 놓이고 next 뒤에도 고스트 없음, 두 번째 방도 오른쪽', () => {
+    one()
+    useDocStore.temporal.getState().clear()
+    t().start('add')
+    closeOk(rect(100, 100, 300, 200))
+    expect(t().commitTrace(240, true, true)).toBe(true)
+    expect(bounds(1)).toEqual([310, 510, 0, 100])
+    expect(t().offset).toBeNull()
+    expect(ghosts()).toEqual([])
+    expect(t().confirmed).toBe(1)
+    closeOk(rect(100, 100, 300, 200))
+    expect(t().commitTrace(240, true, true)).toBe(true)
+    expect(bounds(2)).toEqual([520, 720, 0, 100])
+    expect(t().offset).toBeNull()
+    expect(ghosts()).toEqual([])
+    expect(t().confirmed).toBe(2)
+    expect(useDocStore.temporal.getState().pastStates).toHaveLength(2)
+  })
+  it('(c) replace 첫 방 뒤 next로 add가 돼도 빈 캔버스면 고스트 없음', () => {
+    t().start()
+    closeOk(rect(100, 100, 400, 300))
+    t().commitTrace(240, true, true)
+    expect(t().mode).toBe('add')
+    expect(t().offset).toBeNull()
+    expect(ghosts()).toEqual([])
+    closeOk(rect(0, 0, 200, 200))
+    t().commitTrace(240, true, true)
+    expect(bounds(1)).toEqual([310, 510, 0, 200])
   })
 })
