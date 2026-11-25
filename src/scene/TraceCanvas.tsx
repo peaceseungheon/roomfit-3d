@@ -101,7 +101,8 @@ function ImagePlane({ url, width, depth }: { url: string; width: number; depth: 
   return (
     <mesh rotation-x={-Math.PI / 2} position={[width / 2, 0, depth / 2]} raycast={() => null}>
       <planeGeometry args={[width, depth]} />
-      <meshBasicMaterial map={tex} color={tex ? '#ffffff' : '#c9d6e3'} toneMapped={false} />
+      {/* map이 null -> 텍스처로 바뀌면 셰이더를 다시 컴파일해야 하므로 key로 머티리얼을 새로 만든다 */}
+      <meshBasicMaterial key={tex ? 'map' : 'blank'} map={tex} color={tex ? '#ffffff' : '#c9d6e3'} toneMapped={false} />
     </mesh>
   )
 }
