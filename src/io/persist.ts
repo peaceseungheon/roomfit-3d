@@ -7,13 +7,13 @@ export const STORAGE_KEY = 'roomfit3d.doc'
 export const CORRUPT_BACKUP_KEY = 'roomfit:corrupt-backup'
 export const SAVE_DEBOUNCE_MS = 1000
 
-export const serializeDocument = (doc: DocData, now: Date = new Date()): string => {
+export const serializeDocument = (doc: DocData, now: Date = new Date(), space: number | undefined = 2): string => {
   const out: DocumentJson = {
     projectInfo: { version: '1.1', lastModified: now.toISOString() },
     rooms: doc.rooms,
     items: doc.items,
   }
-  return JSON.stringify(out, null, 2)
+  return JSON.stringify(out, null, space)
 }
 
 /**
