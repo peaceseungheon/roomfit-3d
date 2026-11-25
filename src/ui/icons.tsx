@@ -24,6 +24,11 @@ export const MenuIcon = () => (
     <path d="M4 7h16M4 12h16M4 17h16" />
   </Icon>
 )
+export const ShareIcon = () => (
+  <Icon>
+    <path d="M12 15V4m0 0L8 8m4-4 4 4M5 12v7h14v-7" />
+  </Icon>
+)
 export const CheckIcon = () => (
   <Icon>
     <path d="m5 12.5 4.5 4.5L19 7.5" />

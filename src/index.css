@@ -117,6 +117,7 @@ button.primary:hover:not(:disabled), button[type='submit']:hover:not(:disabled) 
 
 /* 메뉴·모달 (S-06, S-03, S-07) */
 .menu-wrap { position: relative; margin-left: auto; }
+.menu-wrap + .menu-wrap { margin-left: 0; }
 .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; display: flex; flex-direction: column; gap: 2px; min-width: 220px; padding: 6px; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: var(--shadow-pop); }
 .consent-toggle { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px; }
 .menu .save { margin: 4px 6px; }
@@ -211,3 +212,8 @@ button.quiet-danger:hover:not(:disabled) { background: var(--danger-bg); border-
 /* 템플릿 목록(MenuButton) */
 .template-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .template-list button { width: 100%; justify-content: flex-start; flex-wrap: wrap; text-align: left; line-height: 1.4; }
+
+/* 메뉴 그룹 제목·링크(MenuButton) */
+.menu-group { margin: 6px 6px 0; font-size: 12px; font-weight: 700; color: var(--muted); }
+.menu-link { font: inherit; font-weight: 600; display: flex; align-items: center; min-height: 44px; padding: 0 12px; color: var(--ink); text-decoration: none; border-radius: var(--radius); }
+.menu-link:hover { background: var(--canvas); }

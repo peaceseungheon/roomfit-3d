@@ -1,19 +1,17 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { adsConfigured, readConsent, writeConsent } from '../consent/store'
 import { ADSENSE_CLIENT, ADSENSE_SLOT } from '../landing/config'
 import { downloadBlob, stampedName } from '../io/download'
+import { resolveHash } from '../io/shareLink'
 import { readImportFile } from '../io/importFile'
 import { serializeDocument } from '../io/persist'
-import { SHARE_URL_SOFT_MAX, resolveHash, shareUrl } from '../io/shareLink'
 import { currentInstallMode, promptInstall } from '../pwa/install'
-import { isDragging } from '../scene/dragSession'
-import { selectWarnings } from '../scene/useWarnings'
 import { TEMPLATES } from '../store/templates'
 import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { DocData } from '../store/types'
 import { importDocument, resetToSample } from './actions'
-import { captionLines } from './captureCaption'
+import { usePopover } from './usePopover'
 import ConfirmDialog from './ConfirmDialog'
 import { CheckIcon, MenuIcon, WarnIcon } from './icons'
 
@@ -22,57 +20,6 @@ type Dlg = { kind: 'error'; lines: string[] } | { kind: 'import'; doc: DocData }
 function exportJson() {
   const { rooms, items } = useDocStore.getState()
   downloadBlob(new Blob([serializeDocument({ rooms, items })], { type: 'application/json' }), stampedName('json'))
-}
-
-const CAPTION_FONT = 'Pretendard, system-ui, sans-serif'
-
-/** 캔버스 아래에 방 치수·경고 요약 띠를 붙인 새 캔버스(AC-15-2). */
-function withCaption(src: HTMLCanvasElement): HTMLCanvasElement {
-  const { rooms, items } = useDocStore.getState()
-  const lines = captionLines(rooms, items, selectWarnings(rooms, items))
-  const fs = Math.max(14, Math.round(src.width / 40))
-  const pad = Math.round(fs * 0.7)
-  const out = document.createElement('canvas')
-  out.width = src.width
-  out.height = src.height + pad * 2 + Math.round(fs * 1.4) * lines.length
-  const ctx = out.getContext('2d')!
-  ctx.drawImage(src, 0, 0)
-  ctx.fillStyle = '#0f2a4a'
-  ctx.fillRect(0, src.height, out.width, out.height - src.height)
-  ctx.font = `600 ${fs}px ${CAPTION_FONT}`
-  ctx.textBaseline = 'top'
-  lines.forEach((l, i) => {
-    ctx.fillStyle = l.startsWith('⚠') ? '#ffb4a8' : '#ffffff'
-    ctx.fillText(l, pad, src.height + pad + i * Math.round(fs * 1.4), out.width - pad * 2)
-  })
-  return out
-}
-
-/** AC-15-1/2: 현재 3D 캔버스를 PNG로 저장. annotated면 치수·경고 띠를 붙인다. HTML 오버레이는 포함되지 않는다. */
-function capturePng(annotated: boolean) {
-  if (isDragging()) return
-  const fail = () => useUiStore.getState().setNotice('⚠ 캡처에 실패했습니다. 다시 시도해 주세요.')
-  const canvas = document.querySelector<HTMLCanvasElement>('.scene-root canvas')
-  if (!canvas) return fail()
-  try {
-    const target = annotated ? withCaption(canvas) : canvas
-    target.toBlob((b) => (b ? downloadBlob(b, stampedName('png')) : fail()), 'image/png')
-  } catch {
-    fail()
-  }
-}
-
-/** AC-14-7: 문서를 URL 해시에 담아 클립보드에 복사한다. */
-async function copyShareLink() {
-  const { rooms, items } = useDocStore.getState()
-  const { setNotice } = useUiStore.getState()
-  try {
-    const url = await shareUrl({ rooms, items })
-    await navigator.clipboard.writeText(url)
-    setNotice(url.length > SHARE_URL_SOFT_MAX ? '공유 링크를 복사했습니다. 길어서 일부 메신저에서 잘릴 수 있습니다.' : '공유 링크를 복사했습니다.')
-  } catch {
-    setNotice('⚠ 공유 링크를 만들지 못했습니다. JSON 내보내기를 이용해 주세요.')
-  }
 }
 
 function MenuStatus() {
@@ -117,11 +64,8 @@ function ConsentToggle() {
 
 /** S-06 메뉴(≡). 내보내기·불러오기·샘플 초기화와 저장 상태. */
 export default function MenuButton() {
-  const [open, setOpen] = useState(false)
-  const menuId = useId()
+  const { open, setOpen, menuId, wrap, toggle, onKeyDown } = usePopover()
   const [dlg, setDlg] = useState<Dlg | null>(null)
-  const wrap = useRef<HTMLDivElement>(null)
-  const toggle = useRef<HTMLButtonElement>(null)
   const file = useRef<HTMLInputElement>(null)
   const installMode = open ? currentInstallMode() : 'hidden' // 메뉴를 열 때 판정(프롬프트는 그 사이 도착할 수 있다)
 
@@ -139,13 +83,6 @@ export default function MenuButton() {
     return () => window.removeEventListener('hashchange', enter)
   }, [])
 
-  useEffect(() => {
-    if (!open) return
-    const away = (e: PointerEvent) => !wrap.current?.contains(e.target as Node) && setOpen(false)
-    document.addEventListener('pointerdown', away)
-    return () => document.removeEventListener('pointerdown', away)
-  }, [open])
-
   const onPick = async (f: File | undefined) => {
     if (file.current) file.current.value = '' // 같은 파일 다시 선택 가능하게
     if (!f) return
@@ -162,12 +99,7 @@ export default function MenuButton() {
     <div
       className="menu-wrap"
       ref={wrap}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && open) {
-          setOpen(false)
-          toggle.current?.focus()
-        }
-      }}
+      onKeyDown={onKeyDown}
     >
       <button ref={toggle} data-modal-fallback aria-label="메뉴" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen((o) => !o)}>
         <MenuIcon />
@@ -176,18 +108,23 @@ export default function MenuButton() {
         // 버튼과 체크박스가 섞인 팝오버라 ARIA menu 패턴(방향키 이동)을 약속하지 않고 Tab으로 이동하는 그룹으로 둔다
         <div id={menuId} className="menu" role="group" aria-label="메뉴">
           <MenuStatus />
+          <p className="menu-group">시작</p>
+          <button onClick={choose(() => setDlg({ kind: 'templates' }))}>템플릿 불러오기</button>
+          <button onClick={choose(() => setDlg({ kind: 'reset' }))}>샘플로 초기화</button>
+          <a className="menu-link" href="/guide.html" target="_blank" rel="noopener" onClick={() => setOpen(false)}>
+            배치 가이드 (새 탭)
+          </a>
+          <p className="menu-group">파일</p>
           <button onClick={choose(exportJson)}>JSON 내보내기</button>
           <button onClick={() => {
               setOpen(false)
               file.current?.click()
             }}>JSON 불러오기</button>
-          <button onClick={choose(() => capturePng(false))}>캡처(PNG)</button>
-          <button onClick={choose(() => capturePng(true))}>캡처(치수·경고 포함)</button>
-          <button onClick={choose(() => void copyShareLink())}>공유 링크 복사</button>
-          <button onClick={choose(() => setDlg({ kind: 'templates' }))}>템플릿 불러오기</button>
-          <button onClick={choose(() => setDlg({ kind: 'reset' }))}>샘플로 초기화</button>
           {installMode !== 'hidden' && (
-            <button onClick={choose(() => (installMode === 'ios' ? setDlg({ kind: 'ios' }) : void promptInstall()))}>앱으로 설치</button>
+            <>
+              <p className="menu-group">앱</p>
+              <button onClick={choose(() => (installMode === 'ios' ? setDlg({ kind: 'ios' }) : void promptInstall()))}>앱으로 설치</button>
+            </>
           )}
           <ConsentToggle />
         </div>

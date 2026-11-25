@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useUiStore, type CameraMode } from '../store/useUiStore'
 import { redo, undo, useCanUndoRedo } from './actions'
 import MenuButton from './MenuButton'
+import ShareButton from './ShareButton'
 import { BrandMark, CheckIcon, RedoIcon, UndoIcon, WarnIcon } from './icons'
 
 const MODES: [CameraMode, string][] = [
@@ -80,6 +81,7 @@ export default function TopBar() {
       </div>
       <SnapToggle className="desktop-only" />
       <SaveStatus />
+      <ShareButton />
       <MenuButton />
     </header>
   )
