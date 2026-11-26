@@ -219,4 +219,18 @@ describe('다중 방 문서(1.0/1.1)', () => {
     expect(paths({ projectInfo: { version: '1.0', lastModified: 'x' }, items: [] })).toContain('room')
     expect(paths({ ...doc11([room('a', sq(0, 0))]), projectInfo: { version: '0.9', lastModified: 'x' } })).toContain('projectInfo.version')
   })
+  it('purchased: boolean만 허용, 1.0~1.3 모두 읽고 1.3으로 돌려준다', () => {
+    const base = createSample().items[1]
+    const rooms = [room('a', sq(0, 0, 1000, 1000))]
+    const ok = validateDocument({ ...doc11(rooms, [{ ...base, purchased: true }]), projectInfo: { version: '1.3', lastModified: 'x' } })
+    expect(ok.ok && ok.value.projectInfo.version).toBe('1.3')
+    expect(ok.ok && ok.value.items[0].purchased).toBe(true)
+    expect(paths(doc11(rooms, [{ ...base, purchased: 'yes' }]))).toContain('items[0].purchased')
+    for (const v of ['1.0', '1.1', '1.2']) {
+      const r = v === '1.0'
+        ? validateDocument({ projectInfo: { version: v, lastModified: 'x' }, room: rooms[0], items: [base] })
+        : validateDocument({ ...doc11(rooms, [base]), projectInfo: { version: v, lastModified: 'x' } })
+      expect(r.ok && r.value.projectInfo.version).toBe('1.3')
+    }
+  })
 })

@@ -38,10 +38,10 @@ describe('kind 저장·검증', () => {
     const { kind: _k, ...noKind } = room
     expect(parseDocument(JSON.stringify(doc('1.1', noKind))).ok).toBe(true)
   })
-  it('내보내기는 1.2이고 kind가 왕복한다', () => {
+  it('내보내기는 1.3이고 kind가 왕복한다', () => {
     const text = serializeDocument({ rooms: [room] as never, items: [] })
     const r = parseDocument(text)
-    expect(r.ok && r.value.projectInfo.version).toBe('1.2')
+    expect(r.ok && r.value.projectInfo.version).toBe('1.3')
     expect(r.ok && r.value.rooms[0].kind).toBe('서재')
   })
   it('addRoom은 kind와 번호 붙은 이름으로 추가한다', () => {

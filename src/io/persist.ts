@@ -9,7 +9,7 @@ export const SAVE_DEBOUNCE_MS = 1000
 
 export const serializeDocument = (doc: DocData, now: Date = new Date(), space: number | undefined = 2): string => {
   const out: DocumentJson = {
-    projectInfo: { version: '1.2', lastModified: now.toISOString() },
+    projectInfo: { version: '1.3', lastModified: now.toISOString() },
     rooms: doc.rooms,
     items: doc.items,
   }

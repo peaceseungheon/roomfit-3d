@@ -9,6 +9,12 @@ describe('공유 링크', () => {
     const r = await decodeShare(await encodeShare(doc))
     expect(r).toEqual({ ok: true, doc })
   })
+  it('구매 체크(purchased)도 왕복한다', async () => {
+    const s = createSample()
+    const doc = { ...s, items: s.items.map((it, i) => (i === 0 ? { ...it, purchased: true } : it)) }
+    const r = await decodeShare(await encodeShare(doc))
+    expect(r.ok && r.doc.items[0].purchased).toBe(true)
+  })
   it('URL-safe 문자만 쓴다', async () => {
     expect(await shareUrl(createSample(), 'https://x.test/editor.html')).toMatch(/^https:\/\/x\.test\/editor\.html#d=[\w-]+$/)
   })

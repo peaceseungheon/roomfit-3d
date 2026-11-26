@@ -1,4 +1,4 @@
-// 저장 JSON 스키마(version "1.2", 읽기는 "1.0"·"1.1"도 지원). 길이 cm, rotation 도, size=[x(W),y(H),z(D)].
+// 저장 JSON 스키마(version "1.3", 읽기는 "1.0"·"1.1"·"1.2"도 지원). 길이 cm, rotation 도, size=[x(W),y(H),z(D)].
 export type Vec3 = [number, number, number]
 export type Point2 = [number, number] // [x, z]
 
@@ -20,6 +20,7 @@ export interface Item {
   category?: string // 치수 박스 전용 종류(FURNITURE_CATALOG modelType 중 하나). 없으면 '기타'(링크 없음)
   elevation?: number // cm, 바닥 위 높이. 창·콘센트 전용, 없으면 카탈로그 기본값
   doorSwing?: DoorSwing
+  purchased?: boolean // 구매 리스트 체크(FURNITURE 전용 의미). 없으면 false
 }
 
 export interface Room {
@@ -34,7 +35,7 @@ export interface Room {
 export type RoomShape = Pick<Room, 'height' | 'points'>
 
 export interface ProjectInfo {
-  version: '1.2'
+  version: '1.3'
   lastModified: string
 }
 

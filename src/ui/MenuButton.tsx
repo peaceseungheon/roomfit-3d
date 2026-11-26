@@ -13,9 +13,11 @@ import { importDocument, resetToSample } from './actions'
 import TemplateList from './TemplateList'
 import { usePopover } from './usePopover'
 import ConfirmDialog from './ConfirmDialog'
+import PurchaseDialog from './PurchaseDialog'
+import SharedViewDialog from './SharedViewDialog'
 import { CheckIcon, MenuIcon, WarnIcon } from './icons'
 
-type Dlg = { kind: 'error'; lines: string[] } | { kind: 'import'; doc: DocData } | { kind: 'reset' } | { kind: 'ios' } | { kind: 'templates' }
+type Dlg = { kind: 'error'; lines: string[] } | { kind: 'import'; doc: DocData; shared?: boolean } | { kind: 'view'; doc: DocData } | { kind: 'purchase' } | { kind: 'reset' } | { kind: 'ios' } | { kind: 'templates' }
 
 function exportJson() {
   const { rooms, items } = useDocStore.getState()
@@ -77,7 +79,7 @@ export default function MenuButton() {
       const hash = location.hash
       if (!/^#[dt]=/.test(hash)) return
       history.replaceState(null, '', location.pathname + location.search)
-      void resolveHash(hash).then((r) => r && setDlg(r.ok ? { kind: 'import', doc: r.doc } : { kind: 'error', lines: r.lines }))
+      void resolveHash(hash).then((r) => r && setDlg(r.ok ? { kind: 'import', doc: r.doc, shared: hash[1] === 'd' } : { kind: 'error', lines: r.lines }))
     }
     enter()
     window.addEventListener('hashchange', enter)
@@ -111,6 +113,7 @@ export default function MenuButton() {
           <MenuStatus />
           <p className="menu-group">시작</p>
           {multiRoom && <button onClick={choose(() => useUiStore.getState().openLayout())}>방 배치</button>}
+          <button onClick={choose(() => setDlg({ kind: 'purchase' }))}>구매 리스트</button>
           <button onClick={choose(() => setDlg({ kind: 'templates' }))}>템플릿 불러오기</button>
           <button onClick={choose(() => setDlg({ kind: 'reset' }))}>샘플로 초기화</button>
           <a className="menu-link" href="/guide.html" target="_blank" rel="noopener" onClick={() => setOpen(false)}>
@@ -160,10 +163,17 @@ export default function MenuButton() {
             importDocument(dlg.doc)
             setDlg(null)
           }}
+          extraLabel={dlg.shared ? '보기만' : undefined}
+          onExtra={() => setDlg({ kind: 'view', doc: dlg.doc })}
         >
           <p>현재 작업을 덮어씁니다. 계속할까요?</p>
           <p className="hint">되돌리기(Undo)로 복구할 수 있습니다.</p>
+          {dlg.shared && <p className="hint">&quot;보기만&quot;을 누르면 내 작업은 그대로 두고 구매 리스트만 봅니다.</p>}
         </ConfirmDialog>
+      )}
+      {dlg?.kind === 'purchase' && <PurchaseDialog onClose={() => setDlg(null)} />}
+      {dlg?.kind === 'view' && (
+        <SharedViewDialog doc={dlg.doc} onClose={() => setDlg(null)} onLoad={() => setDlg({ kind: 'import', doc: dlg.doc })} />
       )}
       {dlg?.kind === 'reset' && (
         <ConfirmDialog

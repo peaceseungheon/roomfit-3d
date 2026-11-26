@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { FURNITURE_CATALOG } from '../store/catalog'
-import { AFFILIATE_LINKS, affiliateUrl, isHttpUrl, type AffiliateEntry } from './links'
+import { AFFILIATE_LINKS, affiliateBandLabel, affiliateUrl, isHttpUrl, itemAffiliate, type AffiliateEntry } from './links'
 
 const bed: AffiliateEntry = { a: 120, b: 165, small: 'https://a.example/s', mid: 'https://a.example/m', large: 'https://a.example/l' }
 
@@ -51,5 +51,21 @@ describe('affiliateUrl', () => {
     expect(affiliateUrl('CHAIR', 50, links)).toBeNull()
     expect(affiliateUrl('toString', 50, {})).toBeNull()
     expect(affiliateUrl(undefined, 50, links)).toBeNull()
+  })
+})
+
+describe('itemAffiliate', () => {
+  const sofa = { type: 'FURNITURE' as const, modelType: 'SOFA', size: [150, 80, 90] as [number, number, number] }
+  it('가구는 url·종류명·구간 문구를 돌려준다', () => {
+    const a = itemAffiliate(sofa)
+    expect(a?.url).toBe(affiliateUrl('SOFA', 150))
+    expect(a?.kindName).toBe('소파')
+    expect(a?.band).toBe(affiliateBandLabel('SOFA', 150))
+  })
+  it('치수 박스는 category 종류를 쓰고, 없거나 FIXTURE면 null', () => {
+    const box = { ...sofa, modelType: 'DIMENSION_BOX', category: 'BED' }
+    expect(itemAffiliate(box)?.kindName).toBe('침대')
+    expect(itemAffiliate({ ...box, category: undefined })).toBeNull()
+    expect(itemAffiliate({ ...sofa, type: 'FIXTURE' })).toBeNull()
   })
 })

@@ -137,6 +137,8 @@ function checkItem(it: unknown, i: number, errs: ValidationError[], ids: Set<str
     errs.push({ path: `${p}.color`, message: '#RGB 또는 #RRGGBB 형식이어야 합니다' })
   if (it.category !== undefined && (typeof it.category !== 'string' || !FURNITURE_CATALOG.some((c) => c.modelType === it.category)))
     errs.push({ path: `${p}.category`, message: '가구 14종의 modelType 중 하나여야 합니다' })
+  if (it.purchased !== undefined && typeof it.purchased !== 'boolean')
+    errs.push({ path: `${p}.purchased`, message: 'true 또는 false여야 합니다' })
   const posOk = vec3(it.position, `${p}.position`, errs)
   if (posOk) {
     const pos = it.position as Vec3
@@ -170,7 +172,7 @@ function checkItem(it: unknown, i: number, errs: ValidationError[], ids: Set<str
 
 /**
  * 불러오기 검증. 예외를 던지지 않고 필드 경로 포함 오류 목록을 반환한다.
- * "1.1"·"1.2"(rooms 배열)과 "1.0"(room 1개)을 받고, 1.0은 rooms 1개로 감싼 1.1 형태로 돌려준다.
+ * "1.1"~"1.3"(rooms 배열)과 "1.0"(room 1개)을 받고, 1.0은 rooms 1개로 감싼 1.1 형태로 돌려준다.
  */
 export function validateDocument(input: unknown): Result<DocumentJson> {
   const errs: ValidationError[] = []
@@ -178,13 +180,13 @@ export function validateDocument(input: unknown): Result<DocumentJson> {
   const info = input.projectInfo
   // 1.0이거나, 버전을 모르는데 rooms 없이 room만 있으면 1.0 모양으로 검사한다(오류 경로 room.*)
   const version = isObj(info) ? info.version : undefined
-  const legacy = version === '1.0' || (version !== '1.1' && version !== '1.2' && !('rooms' in input) && 'room' in input)
+  const legacy = version === '1.0' || (version !== '1.1' && version !== '1.2' && version !== '1.3' && !('rooms' in input) && 'room' in input)
   if (!isObj(info)) errs.push({ path: 'projectInfo', message: '필수 필드입니다' })
   else {
-    if (info.version !== '1.0' && info.version !== '1.1' && info.version !== '1.2')
+    if (info.version !== '1.0' && info.version !== '1.1' && info.version !== '1.2' && info.version !== '1.3')
       errs.push({
         path: 'projectInfo.version',
-        message: `지원하지 않는 버전입니다 (필요: "1.0"·"1.1"·"1.2", 입력: ${JSON.stringify(info.version)})`,
+        message: `지원하지 않는 버전입니다 (필요: "1.0"·"1.1"·"1.2"·"1.3", 입력: ${JSON.stringify(info.version)})`,
       })
     if (typeof info.lastModified !== 'string')
       errs.push({ path: 'projectInfo.lastModified', message: '필수 문자열입니다' })
@@ -204,7 +206,7 @@ export function validateDocument(input: unknown): Result<DocumentJson> {
   return {
     ok: true,
     value: {
-      projectInfo: { version: '1.2', lastModified: (info as { lastModified: string }).lastModified },
+      projectInfo: { version: '1.3', lastModified: (info as { lastModified: string }).lastModified },
       rooms: rooms as Room[],
       items: input.items as Item[],
     },

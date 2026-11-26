@@ -9,12 +9,15 @@ interface Props {
   alertOnly?: boolean
   /** true면 alertOnly여도 role="alert"를 달지 않는다. 오류가 아닌 안내용 */
   info?: boolean
+  /** 있으면 취소와 확인 사이에 보조 버튼을 둔다. */
+  extraLabel?: string
+  onExtra?: () => void
   onConfirm: () => void
   onCancel: () => void
 }
 
 /** 공용 확인 대화상자(S-07). 파괴적 동작이므로 기본 포커스는 취소에 둔다. */
-export default function ConfirmDialog({ title, children, confirmLabel = '계속', alertOnly, info, onConfirm, onCancel }: Props) {
+export default function ConfirmDialog({ title, children, confirmLabel = '계속', alertOnly, info, extraLabel, onExtra, onConfirm, onCancel }: Props) {
   return (
     <Modal title={title} onClose={onCancel}>
       <div role={alertOnly && !info ? 'alert' : undefined}>{children}</div>
@@ -24,6 +27,7 @@ export default function ConfirmDialog({ title, children, confirmLabel = '계속'
             취소
           </button>
         )}
+        {extraLabel && <button onClick={onExtra}>{extraLabel}</button>}
         <button className="primary" data-autofocus={alertOnly ? '' : undefined} onClick={onConfirm}>
           {confirmLabel}
         </button>

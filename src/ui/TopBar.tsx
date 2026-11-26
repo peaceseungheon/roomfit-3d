@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useUiStore, type CameraMode } from '../store/useUiStore'
 import { redo, undo, useCanUndoRedo } from './actions'
 import MenuButton from './MenuButton'
+import PurchaseDialog from './PurchaseDialog'
 import ShareButton from './ShareButton'
 import { BrandMark, CheckIcon, RedoIcon, UndoIcon, WarnIcon } from './icons'
 
@@ -59,6 +60,7 @@ export default function TopBar() {
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+  const [buying, setBuying] = useState(false)
   const mode = useUiStore((s) => s.cameraMode)
   const { canUndo, canRedo } = useCanUndoRedo()
   return (
@@ -81,8 +83,10 @@ export default function TopBar() {
       </div>
       <SnapToggle className="desktop-only" />
       <SaveStatus />
+      <button className="wide-only" onClick={() => setBuying(true)}>구매 리스트</button>
       <ShareButton />
       <MenuButton />
+      {buying && <PurchaseDialog onClose={() => setBuying(false)} />}
     </header>
   )
 }

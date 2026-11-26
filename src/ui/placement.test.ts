@@ -29,6 +29,11 @@ describe('placement', () => {
     expect(d.id).not.toBe(items[1].id)
     expect(d.position).toEqual([items[1].position[0] + 20, 0, items[1].position[2] + 20])
   })
+  it('복제본은 구매 체크를 물려받지 않는다', () => {
+    const { items } = createSample()
+    const src = { ...items[1], purchased: true }
+    expect('purchased' in makeDuplicate(src, items)).toBe(false)
+  })
 })
 
 describe('dimension box (FR-09)', () => {

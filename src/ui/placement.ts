@@ -74,8 +74,10 @@ export function makeDimensionBox(
 }
 
 export function makeDuplicate(src: Item, items: Item[]): Item {
+  // 복제본은 아직 사지 않은 새 가구라 구매 체크를 물려받지 않는다(AC-17-9 집계).
+  const { purchased: _purchased, ...rest } = src
   return {
-    ...src,
+    ...rest,
     id: nextItemId(items),
     position: [src.position[0] + DUPLICATE_OFFSET, 0, src.position[2] + DUPLICATE_OFFSET],
   }

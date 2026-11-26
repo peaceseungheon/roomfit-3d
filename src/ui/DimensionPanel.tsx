@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { affiliateBandLabel, affiliateUrl } from '../affiliate/links'
+import { AFFILIATE_DISCLOSURE, itemAffiliate } from '../affiliate/links'
 import { NAME_MAX } from '../io/validate'
-import { DEFAULT_ELEVATION, DIMENSION_BOX, FURNITURE_CATALOG, isDimensionBox, itemLabel } from '../store/catalog'
+import { DEFAULT_ELEVATION, DIMENSION_BOX, isDimensionBox, itemLabel } from '../store/catalog'
 import { nextRotation } from '../scene/interaction'
 import { fixtureKind, nearestWallIn } from '../scene/geometry'
 import { useWarnings } from '../scene/useWarnings'
@@ -10,6 +10,7 @@ import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { Item } from '../store/types'
 import { deleteSelected, duplicateSelected, patchItem } from './actions'
+import BlockThumb from './BlockThumb'
 import CategorySelect from './CategorySelect'
 import Field from './Field'
 import { WarnIcon } from './icons'
@@ -190,36 +191,21 @@ function FixtureFields({ item }: { item: Item }) {
 
 /** FR-17: 가구 14종(치수 박스는 선택한 종류) + 설정된 URL이 있을 때만 링크와 고지를 함께 표시. */
 function AffiliateLink({ item }: { item: Item }) {
-  const modelType = isDimensionBox(item) ? item.category : item.modelType
-  const url = item.type === 'FURNITURE' ? affiliateUrl(modelType, item.size[0]) : null
-  const kind = FURNITURE_CATALOG.find((c) => c.modelType === modelType)
-  if (!url || !kind) return null
-  const band = affiliateBandLabel(kind.modelType, item.size[0])
+  const aff = itemAffiliate(item)
+  if (!aff) return null
   return (
     <div className="affiliate">
-      <a className="affiliate-card" href={url} target="_blank" rel="sponsored noopener noreferrer">
-        <BlockThumb color={kind.color} />
+      <a className="affiliate-card" href={aff.url} target="_blank" rel="sponsored noopener noreferrer">
+        <BlockThumb color={aff.color} />
         <span className="affiliate-text">
-          <strong>쿠팡에서 {kind.name} 보기</strong>
-          <small>{band}</small>
+          <strong>쿠팡에서 {aff.kindName} 보기</strong>
+          <small>{aff.band}</small>
         </span>
         <span className="affiliate-go" aria-hidden="true">↗</span>
         <span className="sr-only">(새 탭)</span>
       </a>
-      <p className="hint">제휴 링크입니다. 구매 시 수수료를 받을 수 있습니다</p>
+      <p className="hint">{AFFILIATE_DISCLOSURE}</p>
     </div>
-  )
-}
-
-/** 상품 사진은 서버·외부 요청 없이 구할 수 없어, 종류 색 직육면체로 "어떤 상품군인지"를 보인다. */
-function BlockThumb({ color }: { color: string }) {
-  return (
-    <svg className="affiliate-thumb" viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M24 8 40 16 24 24 8 16Z" fill={color} />
-      <path d="M8 16 24 24V41L8 33Z" fill={color} opacity="0.72" />
-      <path d="M40 16 24 24V41L40 33Z" fill={color} opacity="0.5" />
-      <path d="M24 8 40 16V33L24 41 8 33V16Z M8 16 24 24 40 16 M24 24V41" fill="none" stroke="#0f2a4a" strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
   )
 }
 

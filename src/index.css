@@ -225,3 +225,10 @@ button.quiet-danger:hover:not(:disabled) { background: var(--danger-bg); border-
 .layout-chips { display: flex; gap: 8px; padding: 8px 16px; overflow-x: auto; border-top: 1px solid var(--line); background: var(--surface); }
 .layout-chips button { flex: none; min-height: 44px; }
 .layout-chips button[aria-pressed='true'] { border-color: var(--navy); font-weight: 700; }
+
+/* 구매 리스트(AC-17-9) */
+.purchase-summary { margin: 0 0 8px; font-weight: 700; }
+.purchase-items { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto; }
+.purchase-items li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.purchase-items label { display: block; margin-bottom: 6px; }
+.purchase-items small { opacity: 0.75; }

@@ -1,4 +1,5 @@
-import { FURNITURE_CATALOG } from '../store/catalog'
+import { FURNITURE_CATALOG, isDimensionBox } from '../store/catalog'
+import type { Item } from '../store/types'
 
 /** 종류별 폭(W) 구간 경계와 구간별 URL. 소: W<=a, 중: a<W<=b, 대: W>b (PRD AC-17-8). */
 export interface AffiliateEntry {
@@ -34,6 +35,9 @@ export const AFFILIATE_LINKS: Readonly<Record<string, AffiliateEntry>> = {
   SHOE_RACK: { ...e(60, 100), small: 'https://link.coupang.com/a/iWtKqiDEM8', mid: 'https://link.coupang.com/a/iWtQiZu00i', large: 'https://link.coupang.com/a/iWtRbSijMi' },
 }
 
+/** AC-17-3 고지 문구. 링크가 보이는 모든 곳에 함께 표시한다. */
+export const AFFILIATE_DISCLOSURE = '제휴 링크입니다. 구매 시 수수료를 받을 수 있습니다'
+
 export function isHttpUrl(s: unknown): s is string {
   if (typeof s !== 'string') return false
   try {
@@ -61,4 +65,21 @@ export function affiliateUrl(
 export function affiliateBandLabel(modelType: string, width: number): string {
   const { a, b } = AFFILIATE_LINKS[modelType]
   return width <= a ? `폭 ${a}cm 이하 상품` : width <= b ? `폭 ${a}~${b}cm대 상품` : `폭 ${b}cm 초과 상품`
+}
+
+export interface ItemAffiliate {
+  url: string
+  kindName: string
+  color: string
+  band: string
+}
+
+/** 아이템 하나의 제휴 정보. 가구가 아니거나 종류·URL이 없으면 null(치수 박스는 category 종류). */
+export function itemAffiliate(item: Pick<Item, 'type' | 'modelType' | 'category' | 'size'>): ItemAffiliate | null {
+  if (item.type !== 'FURNITURE') return null
+  const modelType = isDimensionBox(item) ? item.category : item.modelType
+  const url = affiliateUrl(modelType, item.size[0])
+  const kind = FURNITURE_CATALOG.find((c) => c.modelType === modelType)
+  if (!url || !kind) return null
+  return { url, kindName: kind.name, color: kind.color, band: affiliateBandLabel(kind.modelType, item.size[0]) }
 }
