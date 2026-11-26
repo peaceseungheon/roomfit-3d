@@ -3,7 +3,7 @@ import { ROOMS_MAX, validateRoomInput, type RoomInput, type RoomInputErrors } fr
 import { isDragging } from '../scene/dragSession'
 import { computeWarnings } from '../scene/collision'
 import { getActiveRoom } from '../store/activeRoom'
-import { placeBeside, placeRightOf, type AddSide } from '../store/rooms'
+import { findRoomForItem, placeBeside, placeRightOf, type AddSide } from '../store/rooms'
 import { lPoints, rectPoints, shiftItems, useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
 import type { Item, Point2, Room, RoomShape } from '../store/types'
@@ -131,3 +131,11 @@ export function countOutsideFurniture(room: RoomShape, items: Item[]): number {
   const preview: Room = { id: '', name: '', height: room.height, points: room.points }
   return computeWarnings([preview], items.filter((it) => it.type === 'FURNITURE')).filter((w) => w.kind === 'WALL').length
 }
+
+/** 방 삭제 시 남는 가구 수(바닥 중심점이 그 방에 속한 FURNITURE, 배열 앞쪽 방 우선). 고정 요소는 세지 않는다. */
+export const furnitureInRoom = (rooms: readonly Room[], items: readonly Item[], roomId: string): number =>
+  items.filter((it) => it.type === 'FURNITURE' && findRoomForItem(rooms, it)?.id === roomId).length
+
+/** 삭제 확인 문구. 가구가 있으면 개수를 알린다(removeRoom은 가구를 남긴다). */
+export const deleteRoomMessage = (name: string, furniture: number): string =>
+  `「${name}」 방을 삭제할까요? ${furniture > 0 ? `방 안의 가구 ${furniture}개는 남습니다(방 밖이 되어 경고가 표시됩니다)` : '가구는 남습니다'}`

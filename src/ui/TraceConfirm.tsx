@@ -19,6 +19,15 @@ export default function TraceConfirm() {
   const blocked = firstReplace ? null : addRoomBlockedReason(rooms)
   const disabled = bad || blocked !== null
   const commit = (next: boolean) => useTraceStore.getState().commitTrace(h, keep, next)
+  if (mode === 'redo') {
+    return (
+      <div className="row">
+        <button type="button" className="primary" onClick={() => commit(false)}>
+          모양 적용
+        </button>
+      </div>
+    )
+  }
   return (
     <div>
       <div className="field">

@@ -68,8 +68,9 @@ export default function App() {
           </div>
         </aside>
       </div>
-      <TraceScreen stage={WEBGL_OK ? <TraceCanvas /> : null} />
+      {/* 같은 z-index라 DOM 순서가 겹침 순서다: 방 모양 다시 그리기(TraceScreen)가 방 배치(S-10) 위에 와야 한다 */}
       <RoomLayoutScreen stage={WEBGL_OK ? <RoomLayoutCanvas /> : <WebglUnsupported />} />
+      <TraceScreen stage={WEBGL_OK ? <TraceCanvas /> : null} />
       <StartDialog />
       <Toast />
       <Analytics />

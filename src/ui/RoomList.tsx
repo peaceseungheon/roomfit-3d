@@ -5,7 +5,7 @@ import { useActiveRoomId } from '../store/activeRoom'
 import type { Room } from '../store/types'
 import { useDocStore } from '../store/useDocStore'
 import { useUiStore } from '../store/useUiStore'
-import ConfirmDialog from './ConfirmDialog'
+import RoomDeleteConfirm from './RoomDeleteConfirm'
 import { addRoomBlockedReason } from './roomForm'
 import RoomDialog from './RoomDialog'
 
@@ -63,19 +63,7 @@ export default function RoomList() {
         {!single && <button onClick={() => useUiStore.getState().openLayout()}>방 배치</button>}
       </div>
       {blocked && <p className="hint">{blocked}</p>}
-      {deleting && (
-        <ConfirmDialog
-          title="방 삭제"
-          confirmLabel="삭제"
-          onCancel={() => setDeleting(null)}
-          onConfirm={() => {
-            if (!useDocStore.getState().removeRoom(deleting.id)) notice('⚠ 방을 삭제하지 못했습니다')
-            setDeleting(null)
-          }}
-        >
-          <p>「{deleting.name}」 방을 삭제할까요? 가구는 남습니다</p>
-        </ConfirmDialog>
-      )}
+      {deleting && <RoomDeleteConfirm room={deleting} onClose={() => setDeleting(null)} />}
       {adding && <RoomDialog mode="add" onClose={() => setAdding(false)} />}
     </>
   )

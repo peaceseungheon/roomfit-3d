@@ -16,7 +16,7 @@ import { blankArea, clampArea, ghostRooms } from './traceSession'
 import { useDocStore } from './useDocStore'
 import { useUiStore } from './useUiStore'
 
-export type TraceMode = 'replace' | 'add'
+export type TraceMode = 'replace' | 'add' | 'redo'
 export type TraceStep = 'upload' | 'baseline' | 'corners' | 'closed'
 
 export interface TraceImage {
@@ -30,6 +30,8 @@ interface TraceState {
   active: boolean
   /** replace: 문서 전체 교체(첫 방 확정 전), add: 기존 방을 보존하고 추가 */
   mode: TraceMode
+  /** redo 모드(S-10 [모양 다시 그리기])에서 모양을 바꿀 방 id. 그 외 null */
+  redoId: string | null
   /** 이번 세션에서 만드는 방의 종류(FR-23). 확정할 때 방의 kind·이름 기본값이 된다 */
   kind: string | null
   /** 평면 cm -> 문서 cm 이동량(doc = round(plane + offset)). replace 첫 확정 전·add+이미지 첫 방 전·빈 캔버스 add(그 방 하나만 그리고 활성 방 오른쪽에 놓음, FR-23)에는 null */
@@ -69,6 +71,8 @@ interface TraceState {
   selected: number | null
 
   start: (mode?: TraceMode, kind?: string) => void
+  /** 방 id의 모양만 빈 캔버스에 다시 그린다(이웃·이미지 없음). 확정은 commitTrace가 제자리(좌상단 유지)에 setRoomGeometry로 적용 */
+  startRedo: (id: string) => void
   setNeighborSnap: (on: boolean) => void
   cancel: () => void
   setOrtho: (on: boolean) => void
@@ -116,6 +120,7 @@ interface TraceState {
 const initial = {
   active: false,
   mode: 'replace' as TraceMode,
+  redoId: null as string | null,
   /** 확정하는 방에 붙일 종류(FR-23). 세션 동안 유지되고 이름은 번호로 구분된다 */
   kind: null as string | null,
   offset: null as Point2 | null,
@@ -211,15 +216,26 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     // offset은 항상 null: 빈 캔버스 add는 그 방 하나만 보이고(FR-23), 이미지 add는 정렬 정보가 없어 첫 방 확정 전까지 숨긴다
     set({ ...blankState, mode, kind: kind ?? null, offset: null })
   },
+  startRedo: (id) => {
+    const room = useDocStore.getState().rooms.find((r) => r.id === id)
+    if (!room || get().confirmed > 0) return
+    loadSeq++
+    abortSuggest()
+    revoke(get().image)
+    set({ ...blankState, mode: 'redo', redoId: id, offset: null })
+  },
   setNeighborSnap: (neighborSnap) => set({ neighborSnap }),
   cancel: () => {
+    const s = get()
+    const toLayout = s.mode === 'add' && !s.image && s.confirmed > 0 // [끝내기]: 빈 캔버스로 방을 추가한 세션(AC-23-3)
     loadSeq++
     abortSuggest()
     revoke(get().image)
     set({ ...initial })
+    if (toLayout) useUiStore.getState().openLayout()
   },
   loadImageFile: async (file) => {
-    if (get().confirmed > 0) return false // 잠금: objectURL을 만들기 전에 거부
+    if (get().confirmed > 0 || get().mode === 'redo') return false // 잠금: objectURL을 만들기 전에 거부. redo(모양 다시 그리기)는 이미지 없이 그린다
     const err = validateImage(file)
     if (err) {
       useUiStore.getState().setNotice(`⚠ ${err}`)
@@ -250,7 +266,7 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
   },
   setImage: (img) => {
     const s = get()
-    if (s.confirmed > 0) return
+    if (s.confirmed > 0 || s.mode === 'redo') return
     abortSuggest()
     if (s.image && s.image.url !== img.url) revoke(s.image)
     // 새 이미지는 축척·점이 무의미하므로 처음부터 다시 시작한다. 세션 필드는 유지하되 add + 이미지는 문서 원점과 무관하므로 offset을 비운다.
@@ -417,13 +433,26 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
   closeTrace: () => {
     const s = get()
     if (s.scale === null || !canClose(s.corners.length)) return false
-    const frame = s.offset ? { offset: s.offset, others: useDocStore.getState().rooms.map((r) => r.points) } : undefined
-    const r = closePolygon(s.corners.map((p) => pxToCm(p, s.scale!)), frame)
+    const rooms = useDocStore.getState().rooms
+    const cm = s.corners.map((p) => pxToCm(p, s.scale!))
+    let frame: { offset: Point2; others: Point2[][] } | undefined = s.offset ? { offset: s.offset, others: rooms.map((r) => r.points) } : undefined
+    let unplaced: Point2[] | null = null // 빈 캔버스 add: 놓기 전(원점 정규화) 모양. commit이 활성 방 오른쪽에 놓는다
+    if (!frame && s.mode === 'add' && !s.image) {
+      // 빈 캔버스 add: commit이 놓을 위치(활성 방 오른쪽)로 미리 검사한다(AC-04-16). 닫히지 않으면 아래 closePolygon이 같은 오류를 낸다
+      const base = closePolygon(cm)
+      if (base.ok) {
+        const placed = placeRightOf(getActiveRoom(), base.value)
+        const o: Point2 = [-Math.min(...cm.map((p) => p[0])), -Math.min(...cm.map((p) => p[1]))]
+        unplaced = base.value
+        frame = { offset: [o[0] + placed[0][0] - base.value[0][0], o[1] + placed[0][1] - base.value[0][1]], others: rooms.map((r) => r.points) }
+      }
+    }
+    const r = closePolygon(cm, frame)
     if (!r.ok) {
       set({ error: { message: r.message, crossings: r.crossings, overlapWith: r.overlaps.length ? r.overlaps : undefined } })
       return false
     }
-    set({ closed: true, pendingRoom: r.value, error: null })
+    set({ closed: true, pendingRoom: unplaced ?? r.value, error: null })
     return true
   },
   commitTrace: (height = TRACE_DEFAULT_HEIGHT, keepItems = true, next = false) => {
@@ -433,6 +462,24 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     const docStore = useDocStore.getState()
     const cm = cornersCm(s)
     const min: Point2 = [Math.min(...cm.map((p) => p[0])), Math.min(...cm.map((p) => p[1]))]
+    if (s.mode === 'redo') {
+      // 좌상단(min x, min z)을 기존 방에 맞춰 제자리에 놓는다. 겹침·10000cm·검증 실패면 세션을 유지한다
+      const cur = docStore.rooms.find((r) => r.id === s.redoId)
+      if (!cur) {
+        useUiStore.getState().setNotice('⚠ 대상 방을 찾을 수 없습니다')
+        get().cancel()
+        return false
+      }
+      const dx = Math.min(...cur.points.map((p) => p[0])) - Math.min(...pendingRoom.map((p) => p[0]))
+      const dz = Math.min(...cur.points.map((p) => p[1])) - Math.min(...pendingRoom.map((p) => p[1]))
+      const points = pendingRoom.map(([x, z]): Point2 => [x + dx, z + dz])
+      if (!docStore.setRoomGeometry(cur.id, { height: cur.height, points })) {
+        useUiStore.getState().setNotice('⚠ 모양을 적용하지 못했습니다. 다른 방과 겹치거나 집 전체 크기(10000cm)를 넘습니다')
+        return false
+      }
+      get().cancel()
+      return true
+    }
     let offset: Point2
     if (s.mode === 'replace' && s.confirmed === 0) {
       if (!docStore.createPolygonRoom(pendingRoom, height, keepItems, undefined, s.kind ?? undefined)) {
@@ -460,6 +507,7 @@ export const useTraceStore = create<TraceState>()((set, get) => ({
     }
     if (!next) {
       get().cancel()
+      if (s.mode === 'add' && !s.image) useUiStore.getState().openLayout() // AC-23-3: 방이 2개 미만이면 열리지 않는다
       return true
     }
     set({

@@ -67,6 +67,7 @@ export default function MenuButton() {
   const { open, setOpen, menuId, wrap, toggle, onKeyDown } = usePopover()
   const [dlg, setDlg] = useState<Dlg | null>(null)
   const file = useRef<HTMLInputElement>(null)
+  const multiRoom = useDocStore((s) => s.rooms.length >= 2) // AC-23-8: 방이 하나면 배치할 것이 없다
   const installMode = open ? currentInstallMode() : 'hidden' // 메뉴를 열 때 판정(프롬프트는 그 사이 도착할 수 있다)
 
   // 공유 링크(#d=)·가이드의 템플릿 링크(#t=)로 들어오면 덮어쓰기 확인을 띄운다(AC-14-8). 해시는 바로 지운다.
@@ -109,6 +110,7 @@ export default function MenuButton() {
         <div id={menuId} className="menu" role="group" aria-label="메뉴">
           <MenuStatus />
           <p className="menu-group">시작</p>
+          {multiRoom && <button onClick={choose(() => useUiStore.getState().openLayout())}>방 배치</button>}
           <button onClick={choose(() => setDlg({ kind: 'templates' }))}>템플릿 불러오기</button>
           <button onClick={choose(() => setDlg({ kind: 'reset' }))}>샘플로 초기화</button>
           <a className="menu-link" href="/guide.html" target="_blank" rel="noopener" onClick={() => setOpen(false)}>

@@ -14,7 +14,7 @@ import {
   shiftItems,
   withRoom,
 } from './rooms'
-import { roomNameForKind } from './roomKinds'
+import { normalizeKind, roomNameForKind } from './roomKinds'
 import { moveRoomDoc } from './roomMove'
 import { DEFAULT_ROOM_ID, defaultRoomName, type DocData, type Item, type Room, type RoomShape } from './types'
 
@@ -30,6 +30,8 @@ interface DocState extends DocData {
   removeRoom: (id: string) => boolean
   /** trim 후 1~NAME_MAX 자가 아니거나 없는 id면 false. */
   renameRoom: (id: string, name: string) => boolean
+  /** 이름(trim 1~NAME_MAX)과 종류(normalizeKind)를 한 번에 바꾼다(Undo 1단계). 둘 중 하나라도 무효하거나 없는 id·드래그 중이면 상태 유지 후 false. */
+  updateRoomInfo: (id: string, info: { name?: string; kind?: string }) => boolean
   /** 방 하나의 height·points를 교체한다. 다른 방과 겹치면 false. */
   setRoomGeometry: (id: string, shape: RoomShape) => boolean
   /** 방 하나와 그 방의 가구·고정 요소를 같이 평행이동(Undo 1단계). 겹침·10000cm 초과면 상태 유지 후 사유. */
@@ -152,6 +154,18 @@ export const useDocStore = create<DocState>()(
           if (!room) return false
           if (room.name === nm) return true
           set({ rooms: s.rooms.map((r) => (r.id === id ? { ...r, name: nm } : r)), pristine: false })
+          return true
+        },
+        updateRoomInfo: (id, info) => {
+          if (isDragging()) return false
+          const s = get()
+          const room = s.rooms.find((r) => r.id === id)
+          if (!room) return false
+          const name = info.name === undefined ? room.name : info.name.trim()
+          const kind = info.kind === undefined ? room.kind : normalizeKind(info.kind)
+          if (name.length < 1 || name.length > NAME_MAX || (info.kind !== undefined && !kind)) return false
+          if (name === room.name && kind === room.kind) return true
+          set({ rooms: s.rooms.map((r) => (r.id === id ? { ...r, name, ...(kind && { kind }) } : r)), pristine: false })
           return true
         },
         setRoomGeometry: (id, shape) => {

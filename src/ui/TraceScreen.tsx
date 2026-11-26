@@ -16,11 +16,22 @@ const BLANK_STEPS: [TraceStep[], string][] = [
   [['closed'], '② 방 생성'],
 ]
 
+/** 방 모양 다시 그리기(S-10): 천장고·기존 가구 입력 없이 [모양 적용] 하나 */
+const REDO_STEPS: [TraceStep[], string][] = [
+  [['corners'], '① 그리기'],
+  [['closed'], '② 모양 적용'],
+]
+
 const BLANK_GUIDE: Record<TraceStep, string> = {
   upload: '',
   baseline: '',
   corners: '격자 위를 클릭해 모서리를 순서대로 찍으세요. 첫 점을 다시 누르거나 [닫기]를 누르면 닫힙니다. 단위는 cm입니다.',
   closed: '다각형이 닫혔습니다. 선 위를 눌러 점을 추가하고, 점을 눌러 선택한 뒤 [점 삭제]할 수 있습니다. 천장고를 확인하고 [방 생성]을 누르세요.',
+}
+
+const REDO_GUIDE: Record<TraceStep, string> = {
+  ...BLANK_GUIDE,
+  closed: '다각형이 닫혔습니다. 선 위를 눌러 점을 추가하고, 점을 눌러 선택한 뒤 [점 삭제]할 수 있습니다. [모양 적용]을 누르면 기존 방의 좌상단 위치에 놓입니다.',
 }
 
 const GUIDE: Record<TraceStep, string> = {
@@ -245,6 +256,7 @@ function Dialog({ stage }: { stage?: ReactNode }) {
   const error = useTraceStore((s) => s.error)
   const scaled = useTraceStore((s) => s.scale !== null)
   const blank = useTraceStore(selectIsBlank)
+  const redo = useTraceStore((s) => s.mode === 'redo')
   const confirmed = useTraceStore((s) => s.confirmed)
   const locked = confirmed > 0 // 첫 방 확정 뒤에는 이미지·축척·기준선을 바꿀 수 없다
   const [askBlank, setAskBlank] = useState(false)
@@ -268,11 +280,11 @@ function Dialog({ stage }: { stage?: ReactNode }) {
       first.focus()
     }
   }
-  const steps = blank ? BLANK_STEPS : STEPS
+  const steps = redo ? REDO_STEPS : blank ? BLANK_STEPS : STEPS
   return (
-    <div ref={ref} className="trace-screen" role="dialog" aria-modal="true" aria-label="평면도로 방 만들기" tabIndex={-1} onKeyDown={onKeyDown}>
+    <div ref={ref} className="trace-screen" role="dialog" aria-modal="true" aria-label={redo ? '방 모양 다시 그리기' : '평면도로 방 만들기'} tabIndex={-1} onKeyDown={onKeyDown}>
       <header className="trace-head">
-        <strong>평면도로 방 만들기</strong>
+        <strong>{redo ? '방 모양 다시 그리기' : '평면도로 방 만들기'}</strong>
         <ol className="trace-steps">
           {steps.map(([ss, label]) => (
             <li key={label} aria-current={ss.includes(step) ? 'step' : undefined}>
@@ -287,8 +299,8 @@ function Dialog({ stage }: { stage?: ReactNode }) {
           {stage ?? (image ? <img src={image.url} alt="평면도" /> : null)}
         </div>
         <aside className="trace-side">
-          <p>{confirmed >= 1 && step !== 'closed' ? `방 ${confirmed}개 확정. 다음 방의 모서리를 찍거나 [끝내기]를 누르세요.` : (blank ? BLANK_GUIDE : GUIDE)[step]}</p>
-          {blank && !locked && step !== 'closed' && <BackgroundOption />}
+          <p>{confirmed >= 1 && step !== 'closed' ? `방 ${confirmed}개 확정. 다음 방의 모서리를 찍거나 [끝내기]를 누르세요.` : (redo ? REDO_GUIDE : blank ? BLANK_GUIDE : GUIDE)[step]}</p>
+          {blank && !redo && !locked && step !== 'closed' && <BackgroundOption />}
           {image && !locked && step !== 'closed' && <Upload />}
           {image && (
             <>

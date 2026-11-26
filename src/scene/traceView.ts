@@ -17,7 +17,7 @@ export function traceBounds(base: Bounds, ghosts: Point2[][]): Bounds {
 }
 
 /** 카메라 재맞춤 키. 방 개수는 넣지 않는다(확정할 때마다 카메라가 튀지 않게). */
-export function cameraKey(image: { url: string; width: number; height: number } | null, mode: 'replace' | 'add', hasOffset: boolean): string {
+export function cameraKey(image: { url: string; width: number; height: number } | null, mode: string, hasOffset: boolean): string {
   return `${image ? `${image.url}:${image.width}:${image.height}` : 'blank'}:${mode}:${hasOffset ? 'o' : '-'}`
 }
 
