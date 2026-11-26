@@ -43,7 +43,7 @@ hide('[data-contact]', !CONTACT_EMAIL)
 $('[data-contact-email]')?.replaceChildren(CONTACT_EMAIL)
 hide('[data-effective]', !EFFECTIVE_DATE)
 $('[data-effective-date]')?.replaceChildren(EFFECTIVE_DATE)
-// 광고 슬롯·동의 배너·설정 링크: 설정이 비면 렌더링·로드하지 않음(AC-18-7). 동의(granted) 후에만 광고 로드(AC-18-5).
+// 광고 슬롯·동의 배너·설정 링크: 설정이 비면 렌더링·로드하지 않음(AC-18-7). 동의(granted) 후 광고 로드. 현재는 head 직접 로드를 쓰고 이 흐름은 설정 형식 때문에 꺼져 있다(AC-18-5).
 const adsOn = adsConfigured(ADSENSE_CLIENT, ADSENSE_SLOT)
 hide('[data-ad-slot], [data-consent-link], #consent-banner', !adsOn)
 const adSlot = $('[data-ad-slot]')
