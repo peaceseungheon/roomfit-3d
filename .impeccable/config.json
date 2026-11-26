@@ -29,6 +29,51 @@
         ],
         "createdAt": "2026-11-25T04:37:27.001Z",
         "reason": "model verified: same as index.html/privacy.html; CSS imported by src/landing/page.ts so static scan sees no styles; rendered h1 clamp(2.1rem..3.6rem), h2 1.5rem vs 16px body (guide.png capture 390px)"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "guide/studio.html"
+        ],
+        "createdAt": "2026-11-26T03:12:14.126Z",
+        "reason": "claude: styles come from src/landing/landing.css (h1 clamp 2.1-3.6rem, h2 1.5rem, body 1rem; each step >=1.25x); hook reads HTML without the imported stylesheet"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "guide/84-living.html"
+        ],
+        "createdAt": "2026-11-26T03:12:14.253Z",
+        "reason": "claude: styles come from src/landing/landing.css (h1 clamp 2.1-3.6rem, h2 1.5rem, body 1rem; each step >=1.25x); hook reads HTML without the imported stylesheet"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "guide/84-master.html"
+        ],
+        "createdAt": "2026-11-26T03:12:14.379Z",
+        "reason": "claude: styles come from src/landing/landing.css (h1 clamp 2.1-3.6rem, h2 1.5rem, body 1rem; each step >=1.25x); hook reads HTML without the imported stylesheet"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "guide/59-master.html"
+        ],
+        "createdAt": "2026-11-26T03:12:14.505Z",
+        "reason": "claude: styles come from src/landing/landing.css (h1 clamp 2.1-3.6rem, h2 1.5rem, body 1rem; each step >=1.25x); hook reads HTML without the imported stylesheet"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "guide/59-small.html"
+        ],
+        "createdAt": "2026-11-26T03:12:14.642Z",
+        "reason": "claude: styles come from src/landing/landing.css (h1 clamp 2.1-3.6rem, h2 1.5rem, body 1rem; each step >=1.25x); hook reads HTML without the imported stylesheet"
       }
     ]
   }

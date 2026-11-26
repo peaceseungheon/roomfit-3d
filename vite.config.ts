@@ -33,7 +33,10 @@ export default defineConfig({
   ],
   build: {
     rollupOptions: {
-      input: { index: 'index.html', editor: 'editor.html', privacy: 'privacy.html', guide: 'guide.html' },
+      input: { index: 'index.html', editor: 'editor.html', privacy: 'privacy.html', guide: 'guide.html',
+        // 시범 가이드 페이지(FR-21, AC-21-4): 정적 문서, 광고 1칸
+        ...Object.fromEntries(['studio', '59-master', '59-small', '84-master', '84-living'].map((n) => [`guide-${n}`, `guide/${n}.html`])),
+      },
     },
   },
 })
