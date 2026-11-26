@@ -13,6 +13,7 @@ import StartDialog from './ui/StartDialog'
 import Toast from './ui/Toast'
 import TraceScreen from './ui/TraceScreen'
 import RoomLayoutScreen from './ui/RoomLayoutScreen'
+import SideAd from './ui/SideAd'
 import WallEditor from './ui/WallEditor'
 import TopBar, { DimensionsToggle, SnapToggle } from './ui/TopBar'
 import WarningBadge from './ui/WarningBadge'
@@ -67,6 +68,7 @@ export default function App() {
             <RoomSection />
           </div>
         </aside>
+        <SideAd />
       </div>
       {/* 같은 z-index라 DOM 순서가 겹침 순서다: 방 모양 다시 그리기(TraceScreen)가 방 배치(S-10) 위에 와야 한다 */}
       <RoomLayoutScreen stage={WEBGL_OK ? <RoomLayoutCanvas /> : <WebglUnsupported />} />

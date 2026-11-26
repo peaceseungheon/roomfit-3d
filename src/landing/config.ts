@@ -5,3 +5,6 @@ export const EFFECTIVE_DATE = '2026-11-25' // 시행일 (예: 2026-12-01)
 // 단계 7(FR-18)에서 사용: 비어 있으면 광고 슬롯·동의 설정 링크가 숨겨진다.
 export const ADSENSE_CLIENT = 'pub-8121140288681547'
 export const ADSENSE_SLOT = '3548406102'
+// 에디터 측면 광고 1칸(AC-18-1). 승인 후 세로형(160x600) 단위 슬롯 ID(9725198699) 입력, 대시보드에서 /editor.html 자동 광고 제외 필요. 빈 값이면 칸·스크립트 없음.
+export const EDITOR_AD_CLIENT = 'ca-pub-8121140288681547'
+export const EDITOR_AD_SLOT = ''
